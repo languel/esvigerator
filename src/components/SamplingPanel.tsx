@@ -9,19 +9,19 @@ interface SamplingPanelProps {
 
 export const SamplingPanel: React.FC<SamplingPanelProps> = ({ settings, onChange }) => {
   return (
-    <div className="p-3 border-b border-zinc-800 space-y-3">
-      <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-300">
-        <Target className="w-3.5 h-3.5 text-indigo-400" />
+    <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 space-y-3">
+      <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+        <Target className="w-3.5 h-3.5 text-zinc-500" />
         <span>5. Contour Sampling & Simplification</span>
       </div>
 
       <div className="space-y-2 text-xs">
         <div>
-          <label className="block text-[11px] text-zinc-400 mb-1">Sampling Strategy</label>
+          <label className="block text-[11px] text-zinc-500 dark:text-zinc-400 mb-1">Sampling Strategy</label>
           <select
             value={settings.mode}
             onChange={(e) => onChange({ mode: e.target.value as any })}
-            className="w-full bg-zinc-950 border border-zinc-800 rounded px-2 py-1 text-zinc-200 text-xs focus:outline-none focus:border-indigo-500"
+            className="w-full bg-zinc-100 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded px-2 py-1 text-zinc-800 dark:text-zinc-200 text-xs focus:outline-none focus:border-zinc-500"
           >
             <option value="douglasPeucker">Douglas–Peucker Simplification</option>
             <option value="arcLength">Fixed Arc-Length Resampling</option>
@@ -31,9 +31,9 @@ export const SamplingPanel: React.FC<SamplingPanelProps> = ({ settings, onChange
 
         {settings.mode === 'douglasPeucker' && (
           <div>
-            <div className="flex items-center justify-between text-[11px] text-zinc-400 mb-1">
+            <div className="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400 mb-1">
               <span>Simplification Ratio (Perimeter x Ratio)</span>
-              <span className="font-mono text-indigo-400">{settings.simplifyRatio}</span>
+              <span className="font-mono text-zinc-900 dark:text-zinc-100 font-bold">{settings.simplifyRatio}</span>
             </div>
             <input
               type="range"
@@ -42,16 +42,16 @@ export const SamplingPanel: React.FC<SamplingPanelProps> = ({ settings, onChange
               step={0.0001}
               value={settings.simplifyRatio}
               onChange={(e) => onChange({ simplifyRatio: Number(e.target.value) })}
-              className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+              className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-zinc-800 dark:accent-zinc-200"
             />
           </div>
         )}
 
         {settings.mode === 'arcLength' && (
           <div>
-            <div className="flex items-center justify-between text-[11px] text-zinc-400 mb-1">
+            <div className="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400 mb-1">
               <span>Sample Spacing (px)</span>
-              <span className="font-mono text-indigo-400">{settings.sampleSpacing} px</span>
+              <span className="font-mono text-zinc-900 dark:text-zinc-100 font-bold">{settings.sampleSpacing} px</span>
             </div>
             <input
               type="range"
@@ -60,7 +60,7 @@ export const SamplingPanel: React.FC<SamplingPanelProps> = ({ settings, onChange
               step={0.5}
               value={settings.sampleSpacing}
               onChange={(e) => onChange({ sampleSpacing: Number(e.target.value) })}
-              className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+              className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-zinc-800 dark:accent-zinc-200"
             />
           </div>
         )}

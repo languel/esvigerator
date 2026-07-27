@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { ZoomIn, ZoomOut, Maximize2, RefreshCw, Eye } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 import { Point, CubicBezier } from '../geometry/point';
 import { ContourNode } from '../contours/findContours';
 import { SplitView } from './SplitView';
@@ -161,7 +161,7 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
                   cx={p.x}
                   cy={p.y}
                   r={Math.max(0.5, 1.5 / zoom)}
-                  fill="#06b6d4"
+                  fill="#71717a"
                   opacity={0.7}
                 />
               ))}
@@ -178,8 +178,8 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
                   cx={p.x}
                   cy={p.y}
                   r={Math.max(1, 2.5 / zoom)}
-                  fill="#eab308"
-                  stroke="#000"
+                  fill="#a1a1aa"
+                  stroke="#18181b"
                   strokeWidth={0.5 / zoom}
                 />
               ))}
@@ -198,7 +198,7 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
                     y1={seg.p0.y}
                     x2={seg.c1.x}
                     y2={seg.c1.y}
-                    stroke="#ef4444"
+                    stroke="#a1a1aa"
                     strokeWidth={0.8 / zoom}
                     strokeDasharray={`${2 / zoom},${2 / zoom}`}
                   />
@@ -207,7 +207,7 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
                     y1={seg.p1.y}
                     x2={seg.c2.x}
                     y2={seg.c2.y}
-                    stroke="#ef4444"
+                    stroke="#a1a1aa"
                     strokeWidth={0.8 / zoom}
                     strokeDasharray={`${2 / zoom},${2 / zoom}`}
                   />
@@ -216,21 +216,21 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
                     cx={seg.c1.x}
                     cy={seg.c1.y}
                     r={Math.max(1, 2 / zoom)}
-                    fill="#ef4444"
+                    fill="#71717a"
                   />
                   <circle
                     cx={seg.c2.x}
                     cy={seg.c2.y}
                     r={Math.max(1, 2 / zoom)}
-                    fill="#ef4444"
+                    fill="#71717a"
                   />
                   {/* Anchor Points */}
                   <circle
                     cx={seg.p0.x}
                     cy={seg.p0.y}
                     r={Math.max(1.5, 3 / zoom)}
-                    fill="#6366f1"
-                    stroke="#fff"
+                    fill="#27272a"
+                    stroke="#f4f4f5"
                     strokeWidth={0.5 / zoom}
                   />
                 </g>
@@ -248,7 +248,7 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
               width={c.bounds.width}
               height={c.bounds.height}
               fill="none"
-              stroke="#10b981"
+              stroke="#a1a1aa"
               strokeWidth={1 / zoom}
               strokeDasharray={`${3 / zoom},${3 / zoom}`}
             />
@@ -284,12 +284,12 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      className="relative flex-1 bg-zinc-950 overflow-hidden cursor-grab active:cursor-grabbing select-none"
+      className="relative flex-1 bg-zinc-100 dark:bg-zinc-950 overflow-hidden cursor-grab active:cursor-grabbing select-none"
     >
       {/* Top Workspace Controls */}
       <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between pointer-events-none">
         {/* Mode Selector Tabs */}
-        <div className="flex items-center gap-1 bg-zinc-900/90 backdrop-blur p-1 rounded-lg border border-zinc-800 pointer-events-auto shadow-lg">
+        <div className="flex items-center gap-1 bg-white/90 dark:bg-zinc-900/90 backdrop-blur p-1 rounded-lg border border-zinc-200 dark:border-zinc-800 pointer-events-auto shadow-lg">
           {(
             [
               ['fittedVector', 'Fitted Vector'],
@@ -304,8 +304,8 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
               onClick={() => setViewMode(mode)}
               className={`px-2.5 py-1 rounded-md text-xs font-medium transition cursor-pointer ${
                 viewMode === mode
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+                  ? 'bg-zinc-900 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-900 shadow-sm'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'
               }`}
             >
               {label}
@@ -316,7 +316,7 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
             <select
               value={splitMode}
               onChange={(e) => setSplitMode(e.target.value as SplitMode)}
-              className="ml-2 bg-zinc-950 text-xs font-medium text-zinc-200 rounded border border-zinc-800 px-2 py-1 focus:outline-none cursor-pointer"
+              className="ml-2 bg-zinc-50 dark:bg-zinc-950 text-xs font-medium text-zinc-800 dark:text-zinc-200 rounded border border-zinc-200 dark:border-zinc-800 px-2 py-1 focus:outline-none cursor-pointer"
             >
               <option value="origVector">Original vs Vector</option>
               <option value="origMask">Original vs Mask</option>
@@ -327,11 +327,13 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
 
         {/* Overlay Toggles & Zoom Controls */}
         <div className="flex items-center gap-2 pointer-events-auto">
-          <div className="flex items-center gap-1 bg-zinc-900/90 backdrop-blur p-1 rounded-lg border border-zinc-800 shadow-lg text-xs">
+          <div className="flex items-center gap-1 bg-white/90 dark:bg-zinc-900/90 backdrop-blur p-1 rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-lg text-xs">
             <button
               onClick={() => setShowBezierHandles(!showBezierHandles)}
-              className={`px-2 py-1 rounded ${
-                showBezierHandles ? 'bg-indigo-950 text-indigo-300 border border-indigo-700/50' : 'text-zinc-400 hover:bg-zinc-800'
+              className={`px-2 py-1 rounded transition cursor-pointer ${
+                showBezierHandles
+                  ? 'bg-zinc-900 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-900 font-medium'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
               }`}
               title="Toggle Bézier Handles"
             >
@@ -339,8 +341,10 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
             </button>
             <button
               onClick={() => setShowRetainedPoints(!showRetainedPoints)}
-              className={`px-2 py-1 rounded ${
-                showRetainedPoints ? 'bg-yellow-950 text-yellow-300 border border-yellow-700/50' : 'text-zinc-400 hover:bg-zinc-800'
+              className={`px-2 py-1 rounded transition cursor-pointer ${
+                showRetainedPoints
+                  ? 'bg-zinc-900 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-900 font-medium'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
               }`}
               title="Toggle Retained Points"
             >
@@ -348,8 +352,10 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
             </button>
             <button
               onClick={() => setShowRawPoints(!showRawPoints)}
-              className={`px-2 py-1 rounded ${
-                showRawPoints ? 'bg-cyan-950 text-cyan-300 border border-cyan-700/50' : 'text-zinc-400 hover:bg-zinc-800'
+              className={`px-2 py-1 rounded transition cursor-pointer ${
+                showRawPoints
+                  ? 'bg-zinc-900 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-900 font-medium'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
               }`}
               title="Toggle Raw Contour Points"
             >
@@ -357,8 +363,10 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
             </button>
             <button
               onClick={() => setShowBounds(!showBounds)}
-              className={`px-2 py-1 rounded ${
-                showBounds ? 'bg-emerald-950 text-emerald-300 border border-emerald-700/50' : 'text-zinc-400 hover:bg-zinc-800'
+              className={`px-2 py-1 rounded transition cursor-pointer ${
+                showBounds
+                  ? 'bg-zinc-900 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-900 font-medium'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
               }`}
               title="Toggle Bounding Boxes"
             >
@@ -366,34 +374,34 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
             </button>
           </div>
 
-          <div className="flex items-center bg-zinc-900/90 backdrop-blur p-1 rounded-lg border border-zinc-800 shadow-lg gap-0.5">
+          <div className="flex items-center bg-white/90 dark:bg-zinc-900/90 backdrop-blur p-1 rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-lg gap-0.5">
             <button
               onClick={() => setZoom((z) => Math.max(0.1, z * 0.8))}
-              className="p-1.5 rounded hover:bg-zinc-800 text-zinc-300 transition cursor-pointer"
+              className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition cursor-pointer"
               title="Zoom Out"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
-            <span className="font-mono text-xs text-zinc-300 px-2 min-w-[50px] text-center">
+            <span className="font-mono text-xs text-zinc-700 dark:text-zinc-300 px-2 min-w-[50px] text-center">
               {Math.round(zoom * 100)}%
             </span>
             <button
               onClick={() => setZoom((z) => Math.min(50, z * 1.25))}
-              className="p-1.5 rounded hover:bg-zinc-800 text-zinc-300 transition cursor-pointer"
+              className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition cursor-pointer"
               title="Zoom In"
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={resetTransform}
-              className="p-1.5 rounded hover:bg-zinc-800 text-zinc-300 transition cursor-pointer"
+              className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition cursor-pointer"
               title="Fit to Screen"
             >
               <Maximize2 className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => setZoom(1)}
-              className="px-1.5 py-0.5 rounded hover:bg-zinc-800 text-[11px] font-mono text-zinc-400 transition cursor-pointer"
+              className="px-1.5 py-0.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-[11px] font-mono text-zinc-500 dark:text-zinc-400 transition cursor-pointer"
               title="100% Zoom"
             >
               1:1
@@ -413,7 +421,7 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
                 width,
                 height,
               }}
-              className="relative shadow-2xl bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:16px_16px]"
+              className="relative shadow-2xl bg-[radial-gradient(#e4e4e7_1px,transparent_1px)] dark:bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:16px_16px]"
             >
               {splitMode === 'origMask'
                 ? renderSourceImage()
@@ -430,7 +438,7 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
                 width,
                 height,
               }}
-              className="relative shadow-2xl bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:16px_16px]"
+              className="relative shadow-2xl bg-[radial-gradient(#e4e4e7_1px,transparent_1px)] dark:bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:16px_16px]"
             >
               {splitMode === 'origMask'
                 ? renderMaskCanvas()
@@ -451,7 +459,7 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
             width,
             height,
           }}
-          className="relative shadow-2xl bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:16px_16px]"
+          className="relative shadow-2xl bg-[radial-gradient(#e4e4e7_1px,transparent_1px)] dark:bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:16px_16px]"
         >
           {renderSingleContent()}
           {renderOverlays()}

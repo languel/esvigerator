@@ -16,6 +16,7 @@ import { TraceSettings, WorkerRequest, WorkerResponse } from '../workers/protoco
 import { renderSvgToPngBlob } from '../svg/exportSvg';
 
 export const App: React.FC = () => {
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [settings, setSettings] = useState<TraceSettings>(DEFAULT_TRACE_SETTINGS);
   const [activePreset, setActivePreset] = useState<string>('Clean line art');
   const historyRef = useRef<HistoryTracker>(new HistoryTracker(DEFAULT_TRACE_SETTINGS));
@@ -31,6 +32,19 @@ export const App: React.FC = () => {
 
   // Worker instance
   const workerRef = useRef<Worker | null>(null);
+
+  // Theme effect
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
+  const handleToggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
 
   // Initialize Worker
   useEffect(() => {
@@ -225,8 +239,10 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-zinc-950 text-zinc-100">
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
       <TopBar
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
         onOpenImage={() => {
           const input = document.createElement('input');
           input.type = 'file';
@@ -254,7 +270,7 @@ export const App: React.FC = () => {
       {/* Main 3-Column Desktop Layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Column: Source, Threshold, Cleanup, Contour Panels */}
-        <aside className="w-80 border-r border-zinc-800 bg-zinc-900/60 overflow-y-auto shrink-0 flex flex-col">
+        <aside className="w-80 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/60 overflow-y-auto shrink-0 flex flex-col">
           <SourcePanel
             settings={settings.source}
             onChange={(s) => updateSettings((prev) => ({ ...prev, source: { ...prev.source, ...s } }))}
@@ -274,7 +290,7 @@ export const App: React.FC = () => {
         </aside>
 
         {/* Center Column: Interactive Preview Workspace or DropZone */}
-        <main className="flex-1 flex flex-col relative overflow-hidden bg-zinc-950">
+        <main className="flex-1 flex flex-col relative overflow-hidden bg-zinc-100 dark:bg-zinc-950">
           {sourceImage && workerResult ? (
             <PreviewWorkspace
               sourceImage={sourceImage}
@@ -295,7 +311,7 @@ export const App: React.FC = () => {
         </main>
 
         {/* Right Column: Fitting, Sampling, Export, Stats Panels */}
-        <aside className="w-80 border-l border-zinc-800 bg-zinc-900/60 overflow-y-auto shrink-0 flex flex-col">
+        <aside className="w-80 border-l border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/60 overflow-y-auto shrink-0 flex flex-col">
           <FittingPanel
             settings={settings.fitting}
             onChange={(f) => updateSettings((prev) => ({ ...prev, fitting: { ...prev.fitting, ...f } }))}

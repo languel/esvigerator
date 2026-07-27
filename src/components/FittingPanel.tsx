@@ -9,24 +9,24 @@ interface FittingPanelProps {
 
 export const FittingPanel: React.FC<FittingPanelProps> = ({ settings, onChange }) => {
   return (
-    <div className="p-3 border-b border-zinc-800 space-y-3 bg-indigo-950/20">
+    <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 space-y-3 bg-zinc-100/50 dark:bg-zinc-950/40">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-300">
-          <Spline className="w-4 h-4 text-indigo-400" />
+        <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-900 dark:text-zinc-100">
+          <Spline className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
           <span>6. Curve Fitting Engine</span>
         </div>
-        <span className="text-[10px] font-mono text-indigo-300 bg-indigo-900/40 px-2 py-0.5 rounded border border-indigo-700/50">
+        <span className="text-[10px] font-mono text-zinc-700 dark:text-zinc-300 bg-zinc-200 dark:bg-zinc-800 px-2 py-0.5 rounded border border-zinc-300 dark:border-zinc-700">
           Mode: {settings.mode}
         </span>
       </div>
 
       <div className="space-y-3 text-xs">
         <div>
-          <label className="block text-[11px] text-zinc-300 font-medium mb-1">Fitting Mode</label>
+          <label className="block text-[11px] text-zinc-700 dark:text-zinc-300 font-medium mb-1">Fitting Mode</label>
           <select
             value={settings.mode}
             onChange={(e) => onChange({ mode: e.target.value as any })}
-            className="w-full bg-zinc-950 border border-indigo-500/50 rounded px-2.5 py-1.5 text-zinc-100 text-xs font-medium focus:outline-none focus:border-indigo-400 shadow-sm"
+            className="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded px-2.5 py-1.5 text-zinc-900 dark:text-zinc-100 text-xs font-medium focus:outline-none focus:border-zinc-500 shadow-sm"
           >
             <option value="cubicFit">Custom Schneider Error-Bounded Bézier (Recommended)</option>
             <option value="catmullRom">Catmull-Rom Spline to Cubic Béziers</option>
@@ -36,11 +36,11 @@ export const FittingPanel: React.FC<FittingPanelProps> = ({ settings, onChange }
         </div>
 
         {settings.mode === 'cubicFit' && (
-          <div className="space-y-2 bg-zinc-950/80 p-2.5 rounded-lg border border-zinc-800">
+          <div className="space-y-2 bg-white dark:bg-zinc-950 p-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-xs">
             <div>
               <div className="flex items-center justify-between text-[11px] mb-1">
-                <span className="text-zinc-200 font-medium">Maximum Error Tolerance (px)</span>
-                <span className="font-mono font-bold text-indigo-400">{settings.maxError} px</span>
+                <span className="text-zinc-700 dark:text-zinc-300 font-medium">Maximum Error Tolerance (px)</span>
+                <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">{settings.maxError} px</span>
               </div>
               <input
                 type="range"
@@ -49,7 +49,7 @@ export const FittingPanel: React.FC<FittingPanelProps> = ({ settings, onChange }
                 step={0.1}
                 value={settings.maxError}
                 onChange={(e) => onChange({ maxError: Number(e.target.value) })}
-                className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                className="w-full h-2 bg-zinc-200 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-zinc-800 dark:accent-zinc-200"
               />
               <div className="flex justify-between text-[10px] text-zinc-400 mt-0.5">
                 <span>0.1 (High Fidelity)</span>
@@ -58,24 +58,24 @@ export const FittingPanel: React.FC<FittingPanelProps> = ({ settings, onChange }
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-900">
+            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-100 dark:border-zinc-900">
               <div>
-                <label className="block text-[10px] text-zinc-400">Iterations</label>
+                <label className="block text-[10px] text-zinc-500 dark:text-zinc-400">Iterations</label>
                 <input
                   type="number"
                   min={0}
                   max={10}
                   value={settings.maxIterations}
                   onChange={(e) => onChange({ maxIterations: Number(e.target.value) })}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-zinc-200 text-xs"
+                  className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded px-2 py-1 text-zinc-800 dark:text-zinc-200 text-xs"
                 />
               </div>
               <div>
-                <label className="block text-[10px] text-zinc-400">Seam Strategy</label>
+                <label className="block text-[10px] text-zinc-500 dark:text-zinc-400">Seam Strategy</label>
                 <select
                   value={settings.seamStrategy}
                   onChange={(e) => onChange({ seamStrategy: e.target.value as any })}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded px-1.5 py-1 text-zinc-200 text-[11px]"
+                  className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded px-1.5 py-1 text-zinc-800 dark:text-zinc-200 text-[11px]"
                 >
                   <option value="lowestCurvature">Lowest Curvature</option>
                   <option value="firstPoint">First Point</option>
@@ -87,9 +87,9 @@ export const FittingPanel: React.FC<FittingPanelProps> = ({ settings, onChange }
 
         {settings.mode === 'catmullRom' && (
           <div>
-            <div className="flex items-center justify-between text-[11px] text-zinc-400 mb-1">
+            <div className="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400 mb-1">
               <span>Spline Tension</span>
-              <span className="font-mono text-indigo-400">{settings.tension}</span>
+              <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">{settings.tension}</span>
             </div>
             <input
               type="range"
@@ -98,7 +98,7 @@ export const FittingPanel: React.FC<FittingPanelProps> = ({ settings, onChange }
               step={0.1}
               value={settings.tension}
               onChange={(e) => onChange({ tension: Number(e.target.value) })}
-              className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+              className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-zinc-800 dark:accent-zinc-200"
             />
           </div>
         )}

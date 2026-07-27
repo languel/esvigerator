@@ -47,7 +47,7 @@ export const SplitView: React.FC<SplitViewProps> = ({
         style={{ clipPath: `polygon(0 0, ${splitPos}% 0, ${splitPos}% 100%, 0 100%)` }}
       >
         {leftContent}
-        <div className="absolute top-3 left-3 bg-zinc-900/80 backdrop-blur px-2 py-1 rounded text-[10px] font-mono text-zinc-300 border border-zinc-800 pointer-events-none">
+        <div className="absolute top-3 left-3 bg-white/90 dark:bg-zinc-900/90 backdrop-blur px-2 py-1 rounded text-[10px] font-mono text-zinc-700 dark:text-zinc-300 border border-zinc-300 dark:border-zinc-800 pointer-events-none shadow-xs">
           {leftLabel}
         </div>
       </div>
@@ -58,7 +58,7 @@ export const SplitView: React.FC<SplitViewProps> = ({
         style={{ clipPath: `polygon(${splitPos}% 0, 100% 0, 100% 100%, ${splitPos}% 100%)` }}
       >
         {rightContent}
-        <div className="absolute top-3 right-3 bg-zinc-900/80 backdrop-blur px-2 py-1 rounded text-[10px] font-mono text-zinc-300 border border-zinc-800 pointer-events-none">
+        <div className="absolute top-3 right-3 bg-white/90 dark:bg-zinc-900/90 backdrop-blur px-2 py-1 rounded text-[10px] font-mono text-zinc-700 dark:text-zinc-300 border border-zinc-300 dark:border-zinc-800 pointer-events-none shadow-xs">
           {rightLabel}
         </div>
       </div>
@@ -67,9 +67,9 @@ export const SplitView: React.FC<SplitViewProps> = ({
       <div
         onMouseDown={handleMouseDown}
         style={{ left: `${splitPos}%` }}
-        className="absolute top-0 bottom-0 w-1 bg-indigo-500 hover:w-1.5 cursor-ew-resize z-30 transform -translate-x-1/2 flex items-center justify-center shadow-lg"
+        className="absolute top-0 bottom-0 w-1 bg-zinc-400 dark:bg-zinc-600 hover:w-1.5 cursor-ew-resize z-30 transform -translate-x-1/2 flex items-center justify-center shadow-lg"
       >
-        <div className="w-4 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] shadow">
+        <div className="w-4 h-8 rounded-full bg-zinc-900 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-900 flex items-center justify-center text-[10px] shadow font-bold">
           ↔
         </div>
       </div>

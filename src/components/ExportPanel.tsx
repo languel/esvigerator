@@ -16,16 +16,16 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
   onExportSvg,
 }) => {
   return (
-    <div className="p-3 border-b border-zinc-800 space-y-3">
-      <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-300">
-        <FileText className="w-3.5 h-3.5 text-indigo-400" />
+    <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 space-y-3">
+      <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+        <FileText className="w-3.5 h-3.5 text-zinc-500" />
         <span>7. Export & Formatting Settings</span>
       </div>
 
       <div className="space-y-2 text-xs">
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-[11px] text-zinc-400 mb-1">Coordinate Precision</label>
+            <label className="block text-[11px] text-zinc-500 dark:text-zinc-400 mb-1">Coordinate Precision</label>
             <select
               value={settings.precision === null ? 'full' : settings.precision}
               onChange={(e) =>
@@ -33,7 +33,7 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
                   precision: e.target.value === 'full' ? null : Number(e.target.value),
                 })
               }
-              className="w-full bg-zinc-950 border border-zinc-800 rounded px-2 py-1 text-zinc-200 text-xs focus:outline-none focus:border-indigo-500"
+              className="w-full bg-zinc-100 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded px-2 py-1 text-zinc-800 dark:text-zinc-200 text-xs focus:outline-none focus:border-zinc-500"
             >
               <option value="0">0 (Integer)</option>
               <option value="1">1 (0.1 Default)</option>
@@ -44,36 +44,36 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
           </div>
 
           <div>
-            <label className="block text-[11px] text-zinc-400 mb-1">Fill Color</label>
-            <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-800 rounded px-2 py-1">
+            <label className="block text-[11px] text-zinc-500 dark:text-zinc-400 mb-1">Fill Color</label>
+            <div className="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded px-2 py-1">
               <input
                 type="color"
                 value={settings.fillColor}
                 onChange={(e) => onChange({ fillColor: e.target.value })}
                 className="w-4 h-4 rounded cursor-pointer bg-transparent border-0"
               />
-              <span className="font-mono text-xs text-zinc-300">{settings.fillColor}</span>
+              <span className="font-mono text-xs text-zinc-800 dark:text-zinc-300">{settings.fillColor}</span>
             </div>
           </div>
         </div>
 
         <div className="flex items-center justify-between pt-1">
-          <label className="text-[11px] text-zinc-400 flex items-center gap-2 cursor-pointer select-none">
+          <label className="text-[11px] text-zinc-600 dark:text-zinc-400 flex items-center gap-2 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={settings.relativeCommands}
               onChange={(e) => onChange({ relativeCommands: e.target.checked })}
-              className="rounded bg-zinc-950 border-zinc-800 text-indigo-600 focus:ring-0"
+              className="rounded bg-zinc-100 dark:bg-zinc-950 border-zinc-300 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-0"
             />
             Relative Commands (c, m)
           </label>
 
-          <label className="text-[11px] text-zinc-400 flex items-center gap-2 cursor-pointer select-none">
+          <label className="text-[11px] text-zinc-600 dark:text-zinc-400 flex items-center gap-2 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={settings.transparentBackground}
               onChange={(e) => onChange({ transparentBackground: e.target.checked })}
-              className="rounded bg-zinc-950 border-zinc-800 text-indigo-600 focus:ring-0"
+              className="rounded bg-zinc-100 dark:bg-zinc-950 border-zinc-300 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-0"
             />
             Transparent BG
           </label>
@@ -82,14 +82,14 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
         <div className="pt-2 grid grid-cols-2 gap-2">
           <button
             onClick={onCopySvg}
-            className="flex items-center justify-center gap-1.5 py-1.5 px-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded text-xs font-medium transition cursor-pointer"
+            className="flex items-center justify-center gap-1.5 py-1.5 px-2 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded text-xs font-medium transition cursor-pointer"
           >
             <Copy className="w-3.5 h-3.5" />
             Copy Code
           </button>
           <button
             onClick={onExportSvg}
-            className="flex items-center justify-center gap-1.5 py-1.5 px-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-medium transition cursor-pointer"
+            className="flex items-center justify-center gap-1.5 py-1.5 px-2 bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-zinc-100 dark:text-zinc-900 rounded text-xs font-medium transition cursor-pointer shadow-sm"
           >
             <Download className="w-3.5 h-3.5" />
             Download SVG
