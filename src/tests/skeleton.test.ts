@@ -7,7 +7,6 @@ describe('Centerline Skeleton Extraction & Merging', () => {
     const height = 20;
     const binary = new Uint8Array(width * height);
 
-    // Draw a thick horizontal line (width = 6 pixels)
     for (let y = 7; y <= 12; y++) {
       for (let x = 2; x < 18; x++) {
         binary[y * width + x] = 255;
@@ -42,7 +41,7 @@ describe('Centerline Skeleton Extraction & Merging', () => {
     expect(chains[0].points.length).toBeGreaterThan(5);
   });
 
-  it('merges nearby disjoint chains into long continuous stroke paths', () => {
+  it('merges nearby smoothly-aligned chains into continuous stroke paths', () => {
     const chain1: CenterlineChain = {
       points: [
         { x: 0, y: 0 },
@@ -63,5 +62,28 @@ describe('Centerline Skeleton Extraction & Merging', () => {
     expect(merged[0].points.length).toBe(4);
     expect(merged[0].points[0]).toEqual({ x: 0, y: 0 });
     expect(merged[0].points[3]).toEqual({ x: 25, y: 0 });
+  });
+
+  it('rejects merging when endpoints would form a sharp 180-degree hairpin U-turn double-back', () => {
+    // Chain A going left-to-right along Y=0
+    const chainA: CenterlineChain = {
+      points: [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+      ],
+      isClosed: false,
+    };
+    // Chain B going right-to-left along parallel line Y=10 (hairpin double-back)
+    const chainB: CenterlineChain = {
+      points: [
+        { x: 10, y: 10 },
+        { x: 0, y: 10 },
+      ],
+      isClosed: false,
+    };
+
+    // Endpoints (10,0) and (10,10) are 10px apart, but require double-backing
+    const merged = mergeChainsByDistance([chainA, chainB], 15.0);
+    expect(merged.length).toBe(2); // Retained as separate chains!
   });
 });

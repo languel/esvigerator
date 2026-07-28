@@ -1,4 +1,4 @@
-import { Point, distance } from '../geometry/point';
+import { Point, distance, sub, normalize, dot } from '../geometry/point';
 
 export interface CenterlineChain {
   points: Point[];
@@ -251,8 +251,43 @@ export function extractSkeletonChains(
 }
 
 /**
- * Merges adjacent centerline chains whose endpoints are closer than maxMergeDistance.
- * Consolidates fragmented subsegments into long, continuous paths.
+ * Checks if joining endpoint A to endpoint B is directionally smooth.
+ * Prevents joining distinct parallel branches or creating 180-degree hairpin loops.
+ */
+function isSmoothMerge(
+  ptsA: Point[],
+  ptsB: Point[],
+  gapDist: number
+): boolean {
+  if (gapDist <= 2.5) return true; // Direct adjacent 1-px pixel grid touching is always safe
+
+  const lenA = ptsA.length;
+  const lenB = ptsB.length;
+
+  if (lenA < 2 || lenB < 2) return false;
+
+  // Tangent vector pointing OUT of A's end
+  const dirA = normalize(sub(ptsA[lenA - 1], ptsA[Math.max(0, lenA - 3)]));
+  // Tangent vector pointing INTO B's start
+  const dirB = normalize(sub(ptsB[Math.min(lenB - 1, 2)], ptsB[0]));
+  // Vector bridging the gap from A's end to B's start
+  const dirBridge = normalize(sub(ptsB[0], ptsA[lenA - 1]));
+
+  // 1. Bridge must extend forward from A (dot > 0)
+  const forwardA = dot(dirA, dirBridge);
+  if (forwardA < 0.2) return false; // Sharp left/right/backwards turn
+
+  // 2. B must continue in a similar general direction (dot > 0)
+  const alignB = dot(dirA, dirB);
+  if (alignB < 0.0) return false; // Hairpin U-turn double-back
+
+  return true;
+}
+
+/**
+ * Merges adjacent centerline chains whose endpoints are closer than maxMergeDistance
+ * AND directionally aligned. Consolidates fragmented subsegments into long, continuous paths
+ * without bridging across distinct parallel branches or creating wild coiled loops.
  */
 export function mergeChainsByDistance(
   chains: CenterlineChain[],
@@ -282,8 +317,6 @@ export function mergeChainsByDistance(
         continue;
       }
 
-      let mergedThisRound = false;
-
       for (let j = i + 1; j < active.length; j++) {
         if (used[j]) continue;
         const chainB = active[j];
@@ -296,37 +329,37 @@ export function mergeChainsByDistance(
         const bEnd = chainB.points[chainB.points.length - 1];
 
         // 1. A_end to B_start
-        if (distance(aEnd, bStart) <= maxMergeDist) {
+        const d1 = distance(aEnd, bStart);
+        if (d1 <= maxMergeDist && isSmoothMerge(chainA.points, chainB.points, d1)) {
           chainA.points.push(...chainB.points);
           used[j] = 1;
-          mergedThisRound = true;
           mergedAny = true;
           break;
         }
 
-        // 2. A_end to B_end
-        if (distance(aEnd, bEnd) <= maxMergeDist) {
+        // 2. A_end to B_end (reverse B)
+        const d2 = distance(aEnd, bEnd);
+        if (d2 <= maxMergeDist && isSmoothMerge(chainA.points, [...chainB.points].reverse(), d2)) {
           chainA.points.push(...[...chainB.points].reverse());
           used[j] = 1;
-          mergedThisRound = true;
           mergedAny = true;
           break;
         }
 
-        // 3. A_start to B_start
-        if (distance(aStart, bStart) <= maxMergeDist) {
+        // 3. A_start to B_start (reverse A)
+        const d3 = distance(aStart, bStart);
+        if (d3 <= maxMergeDist && isSmoothMerge([...chainA.points].reverse(), chainB.points, d3)) {
           chainA.points = [...[...chainB.points].reverse(), ...chainA.points];
           used[j] = 1;
-          mergedThisRound = true;
           mergedAny = true;
           break;
         }
 
         // 4. A_start to B_end
-        if (distance(aStart, bEnd) <= maxMergeDist) {
+        const d4 = distance(aStart, bEnd);
+        if (d4 <= maxMergeDist && isSmoothMerge([...chainA.points].reverse(), [...chainB.points].reverse(), d4)) {
           chainA.points = [...chainB.points, ...chainA.points];
           used[j] = 1;
-          mergedThisRound = true;
           mergedAny = true;
           break;
         }
