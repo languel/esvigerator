@@ -40,7 +40,9 @@ export interface TraceSettings {
     sampleSpacing: number; // e.g. 5.0
     preserveCorners: boolean;
     cornerAngleDegrees: number;
+    simplificationMethod: 'douglasPeucker' | 'visvalingamWhyatt' | 'curvatureAdaptive';
     rdpEpsilon: number; // e.g. 1.2 px
+    visvalingamAreaThreshold: number; // e.g. 4.0 px²
     smoothingPasses: number; // e.g. 2 passes
     resampleSpacing: number; // e.g. 4.0 px
   };

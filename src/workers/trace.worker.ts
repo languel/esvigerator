@@ -4,6 +4,8 @@ import { findContours } from '../contours/findContours';
 import { zhangSuenThinning, extractSkeletonChains, mergeChainsByDistance } from '../contours/skeleton';
 import { fitCenterlineChains } from '../fitting/centerline';
 import { simplifyDouglasPeucker } from '../contours/simplifyDouglasPeucker';
+import { simplifyVisvalingamWhyatt } from '../contours/simplifyVisvalingamWhyatt';
+import { simplifyCurvatureAdaptive } from '../contours/simplifyCurvatureAdaptive';
 import { resampleArcLength } from '../contours/resampleArcLength';
 import { smoothPoints } from '../contours/smoothing';
 import { fitCurve } from '../fitting/cubicFit/fitCurve';
@@ -79,39 +81,56 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     let rawPointsTotal = 0;
     let retainedPointsTotal = 0;
 
+    const simplifyMethod = settings.sampling.simplificationMethod ?? 'curvatureAdaptive';
+
+    function applySimplification(pts: Point[], isClosed: boolean): Point[] {
+      if (simplifyMethod === 'visvalingamWhyatt') {
+        return simplifyVisvalingamWhyatt(
+          pts,
+          settings.sampling.visvalingamAreaThreshold ?? 4.0,
+          isClosed
+        );
+      } else if (simplifyMethod === 'curvatureAdaptive') {
+        return simplifyCurvatureAdaptive(
+          pts,
+          settings.sampling.rdpEpsilon > 0 ? settings.sampling.rdpEpsilon : 1.5,
+          settings.sampling.cornerAngleDegrees ?? 25,
+          isClosed
+        );
+      } else {
+        return simplifyDouglasPeucker(
+          pts,
+          settings.sampling.rdpEpsilon > 0 ? settings.sampling.rdpEpsilon : 1.2
+        );
+      }
+    }
+
     if (settings.fitting.mode === 'centerline') {
       // Centerline Skeleton Extraction Engine
       const skeleton = zhangSuenThinning(cleanMask, width, height);
       let rawChains = extractSkeletonChains(skeleton, width, height, settings.fitting.pruneStubs);
 
-      // Merge nearby endpoints by distance to consolidate fragmented subsegments
       if (settings.fitting.mergeDistance > 0) {
         rawChains = mergeChainsByDistance(rawChains, settings.fitting.mergeDistance);
       }
 
-      // Apply Post-Simplification Pipeline on Centerline Chains
       const processedChains = rawChains.map((chain) => {
         rawPointsTotal += chain.points.length;
 
         let pts = chain.points;
 
-        // 1. Moving Average Smoothing Filter (smooth 1px pixel stair-stepping first)
+        // 1. Moving Average Smoothing Filter
         if (settings.sampling.smoothingPasses > 0) {
           pts = smoothPoints(pts, settings.sampling.smoothingPasses, chain.isClosed);
         }
 
-        // 2. Uniform Arc-Length Resampling (coarse spacing if enabled)
+        // 2. Uniform Arc-Length Resampling
         if (settings.sampling.resampleSpacing > 0) {
           pts = resampleArcLength(pts, settings.sampling.resampleSpacing);
         }
 
-        // 3. RDP Simplification LAST (strips away all dense collinear / shallow points)
-        const effectiveRdp =
-          settings.sampling.rdpEpsilon > 0
-            ? settings.sampling.rdpEpsilon
-            : Math.max(1.0, settings.fitting.maxError * 0.8);
-
-        pts = simplifyDouglasPeucker(pts, effectiveRdp);
+        // 3. Curvature/Area-Adaptive Simplification LAST
+        pts = applySimplification(pts, chain.isClosed);
 
         simplifiedGroups.push(pts);
         retainedPointsTotal += pts.length;
@@ -153,13 +172,11 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
           simp = [...rawPts];
         }
 
-        // Apply Smoothing then RDP LAST
         if (settings.sampling.smoothingPasses > 0) {
           simp = smoothPoints(simp, settings.sampling.smoothingPasses, true);
         }
-        if (settings.sampling.rdpEpsilon > 0) {
-          simp = simplifyDouglasPeucker(simp, settings.sampling.rdpEpsilon);
-        }
+
+        simp = applySimplification(simp, true);
 
         simplifiedGroups.push(simp);
         retainedPointsTotal += simp.length;
