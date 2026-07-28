@@ -251,67 +251,36 @@ export function extractSkeletonChains(
 }
 
 /**
- * Checks if joining endpoint A to endpoint B is directionally smooth
- * AND does not create a double-back parallel loop along the same branch.
+ * Checks if joining endpoint A to endpoint B is valid.
+ * Allows permissive merging to avoid line cuts while preventing extreme 180-deg hairpin double-backs.
  */
 function isSmoothMerge(
   ptsA: Point[],
   ptsB: Point[],
   gapDist: number
 ): boolean {
+  if (gapDist <= 3.5) return true; // Direct 1-3px touching is always merged
+
   const lenA = ptsA.length;
   const lenB = ptsB.length;
   if (lenA < 2 || lenB < 2) return false;
 
-  if (gapDist <= 2.5) {
-    // Check if merging B onto A creates a immediate double-back
-    const pA1 = ptsA[lenA - 1];
-    const pA2 = ptsA[lenA - 2];
-    const pB2 = ptsB[Math.min(lenB - 1, 1)];
-
-    const vA = normalize(sub(pA1, pA2));
-    const vB = normalize(sub(pB2, pA1));
-    if (dot(vA, vB) < -0.5) return false; // Rejects 180-deg reversal
-    return true;
-  }
-
-  // Tangent vector pointing OUT of A's end
   const dirA = normalize(sub(ptsA[lenA - 1], ptsA[Math.max(0, lenA - 3)]));
-  // Tangent vector pointing INTO B's start
   const dirB = normalize(sub(ptsB[Math.min(lenB - 1, 2)], ptsB[0]));
-  // Vector bridging the gap from A's end to B's start
-  const dirBridge = normalize(sub(ptsB[0], ptsA[lenA - 1]));
 
-  // 1. Bridge must extend forward from A (dot > 0.4)
-  if (dot(dirA, dirBridge) < 0.4) return false;
-
-  // 2. B must continue in a forward direction (dot > 0.3)
-  if (dot(dirA, dirB) < 0.3) return false;
-
-  // 3. Overlap check: Ensure chain B is not running parallel back along chain A
-  const sampleB = ptsB[Math.min(lenB - 1, 5)];
-  for (let i = 0; i < lenA - 3; i += 2) {
-    if (distance(ptsA[i], sampleB) < gapDist * 0.8) {
-      return false; // Rejects merging parallel double-pass branches
-    }
-  }
-
-  return true;
+  // Only reject if B turns completely backwards into A (hairpin double-back dot < -0.6)
+  return dot(dirA, dirB) > -0.6;
 }
 
 /**
- * Merges adjacent centerline chains whose endpoints are closer than maxMergeDistance
- * AND directionally aligned. Consolidates fragmented subsegments into long, continuous paths
- * without bridging across distinct parallel branches or creating wild coiled loops.
+ * Merges adjacent centerline chains whose endpoints are closer than maxMergeDistance.
+ * Permissively consolidates fragmented subsegments into long continuous stroke paths.
  */
 export function mergeChainsByDistance(
   chains: CenterlineChain[],
-  maxMergeDist = 4.0
+  maxMergeDist = 8.0
 ): CenterlineChain[] {
   if (chains.length < 2 || maxMergeDist <= 0) return chains;
-
-  // Cap effective merge distance to 10px max (gap distances > 10px cross feature boundaries)
-  const effectiveMaxDist = Math.min(10.0, maxMergeDist);
 
   let active = chains.map((c) => ({
     points: [...c.points],
@@ -351,7 +320,7 @@ export function mergeChainsByDistance(
 
         // 1. A_end to B_start
         const d1 = distance(aEnd, bStart);
-        if (d1 <= effectiveMaxDist && isSmoothMerge(chainA.points, chainB.points, d1)) {
+        if (d1 <= maxMergeDist && isSmoothMerge(chainA.points, chainB.points, d1)) {
           chainA.points.push(...chainB.points);
           used[j] = 1;
           mergedAny = true;
@@ -360,7 +329,7 @@ export function mergeChainsByDistance(
 
         // 2. A_end to B_end (reverse B)
         const d2 = distance(aEnd, bEnd);
-        if (d2 <= effectiveMaxDist && isSmoothMerge(chainA.points, [...chainB.points].reverse(), d2)) {
+        if (d2 <= maxMergeDist && isSmoothMerge(chainA.points, [...chainB.points].reverse(), d2)) {
           chainA.points.push(...[...chainB.points].reverse());
           used[j] = 1;
           mergedAny = true;
@@ -369,7 +338,7 @@ export function mergeChainsByDistance(
 
         // 3. A_start to B_start (reverse A)
         const d3 = distance(aStart, bStart);
-        if (d3 <= effectiveMaxDist && isSmoothMerge([...chainA.points].reverse(), chainB.points, d3)) {
+        if (d3 <= maxMergeDist && isSmoothMerge([...chainA.points].reverse(), chainB.points, d3)) {
           chainA.points = [...[...chainB.points].reverse(), ...chainA.points];
           used[j] = 1;
           mergedAny = true;
@@ -378,7 +347,7 @@ export function mergeChainsByDistance(
 
         // 4. A_start to B_end
         const d4 = distance(aStart, bEnd);
-        if (d4 <= effectiveMaxDist && isSmoothMerge([...chainA.points].reverse(), [...chainB.points].reverse(), d4)) {
+        if (d4 <= maxMergeDist && isSmoothMerge([...chainA.points].reverse(), [...chainB.points].reverse(), d4)) {
           chainA.points = [...chainB.points, ...chainA.points];
           used[j] = 1;
           mergedAny = true;

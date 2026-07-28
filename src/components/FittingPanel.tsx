@@ -63,9 +63,9 @@ export const FittingPanel: React.FC<FittingPanelProps> = ({ settings, onChange }
               <input
                 type="range"
                 min={0}
-                max={10.0}
+                max={30.0}
                 step={0.5}
-                value={Math.min(10.0, settings.mergeDistance)}
+                value={settings.mergeDistance}
                 onChange={(e) => onChange({ mergeDistance: Number(e.target.value) })}
                 className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-zinc-800 dark:accent-zinc-200"
               />

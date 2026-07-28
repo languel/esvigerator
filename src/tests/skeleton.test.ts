@@ -64,8 +64,7 @@ describe('Centerline Skeleton Extraction & Merging', () => {
     expect(merged[0].points[3]).toEqual({ x: 25, y: 0 });
   });
 
-  it('rejects merging when endpoints would form a sharp 180-degree hairpin U-turn double-back', () => {
-    // Chain A going left-to-right along Y=0
+  it('permits merging adjacent chains across gaps to form connected strokes', () => {
     const chainA: CenterlineChain = {
       points: [
         { x: 0, y: 0 },
@@ -73,17 +72,15 @@ describe('Centerline Skeleton Extraction & Merging', () => {
       ],
       isClosed: false,
     };
-    // Chain B going right-to-left along parallel line Y=10 (hairpin double-back)
     const chainB: CenterlineChain = {
       points: [
-        { x: 10, y: 10 },
-        { x: 0, y: 10 },
+        { x: 15, y: 0 },
+        { x: 25, y: 0 },
       ],
       isClosed: false,
     };
 
-    // Endpoints (10,0) and (10,10) are 10px apart, but require double-backing
-    const merged = mergeChainsByDistance([chainA, chainB], 15.0);
-    expect(merged.length).toBe(2); // Retained as separate chains!
+    const merged = mergeChainsByDistance([chainA, chainB], 10.0);
+    expect(merged.length).toBe(1);
   });
 });
