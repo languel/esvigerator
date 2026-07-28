@@ -82,8 +82,6 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
       const mouseY = e.clientY - containerRect.top;
 
       const dy = e.deltaY;
-      // Use smooth exponential scaling proportional to deltaY
-      // Trackpad pinches use e.ctrlKey = true in browsers
       const modeFactor = e.ctrlKey ? 0.008 : 0.0018;
       const factor = Math.exp(-dy * modeFactor);
 
@@ -106,7 +104,6 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
     []
   );
 
-  // Attach non-passive wheel listener directly to container
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -121,6 +118,9 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
   // Mouse pan
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button, select, input, .pointer-events-auto')) return;
+
     isPanning.current = true;
     startPan.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
   };
@@ -221,7 +221,6 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
             <g key={`bez-group-${i}`}>
               {group.map((seg, j) => (
                 <g key={`bez-seg-${j}`}>
-                  {/* Handle Lines */}
                   <line
                     x1={seg.p0.x}
                     y1={seg.p0.y}
@@ -240,7 +239,6 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
                     strokeWidth={0.8 / zoom}
                     strokeDasharray={`${2 / zoom},${2 / zoom}`}
                   />
-                  {/* Control Handles */}
                   <circle
                     cx={seg.c1.x}
                     cy={seg.c1.y}
@@ -253,7 +251,6 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
                     r={Math.max(1, 2 / zoom)}
                     fill="#71717a"
                   />
-                  {/* Anchor Points */}
                   <circle
                     cx={seg.p0.x}
                     cy={seg.p0.y}

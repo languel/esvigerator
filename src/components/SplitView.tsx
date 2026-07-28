@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 interface SplitViewProps {
   leftContent: React.ReactNode;
@@ -17,28 +17,39 @@ export const SplitView: React.FC<SplitViewProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
 
-  const handleMouseDown = () => {
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
     isDragging.current = true;
   };
 
-  const handleMouseUp = () => {
-    isDragging.current = false;
-  };
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+  const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging.current || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    const pct = Math.max(5, Math.min(95, (x / rect.width) * 100));
+    const pct = Math.max(2, Math.min(98, (x / rect.width) * 100));
     setSplitPos(pct);
   }, []);
+
+  const handleMouseUp = useCallback(() => {
+    isDragging.current = false;
+  }, []);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => handleMouseMove(e);
+    const onUp = () => handleMouseUp();
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [handleMouseMove, handleMouseUp]);
 
   return (
     <div
       ref={containerRef}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
       className="relative w-full h-full overflow-hidden select-none"
     >
       {/* Left Pane */}
@@ -67,9 +78,10 @@ export const SplitView: React.FC<SplitViewProps> = ({
       <div
         onMouseDown={handleMouseDown}
         style={{ left: `${splitPos}%` }}
-        className="absolute top-0 bottom-0 w-1 bg-zinc-400 dark:bg-zinc-600 hover:w-1.5 cursor-ew-resize z-30 transform -translate-x-1/2 flex items-center justify-center shadow-lg"
+        className="absolute top-0 bottom-0 w-2.5 bg-transparent hover:bg-zinc-400/20 cursor-ew-resize z-30 transform -translate-x-1/2 flex items-center justify-center pointer-events-auto"
       >
-        <div className="w-4 h-8 rounded-full bg-zinc-900 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-900 flex items-center justify-center text-[10px] shadow font-bold">
+        <div className="w-0.5 h-full bg-zinc-400 dark:bg-zinc-500 shadow-sm" />
+        <div className="absolute w-5 h-8 rounded-full bg-zinc-900 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-900 flex items-center justify-center text-[10px] shadow-md font-bold pointer-events-none">
           ↔
         </div>
       </div>
