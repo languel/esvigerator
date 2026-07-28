@@ -1,3 +1,4 @@
+import React from 'react';
 import { Target, Sparkles, Activity } from 'lucide-react';
 import { TraceSettings } from '../workers/protocol';
 
@@ -74,7 +75,7 @@ export const SamplingPanel: React.FC<SamplingPanelProps> = ({ settings, onChange
               <input
                 type="range"
                 min={0.5}
-                max={25.0}
+                max={50.0}
                 step={0.5}
                 value={settings.visvalingamAreaThreshold ?? 4.0}
                 onChange={(e) => onChange({ visvalingamAreaThreshold: Number(e.target.value) })}
@@ -90,7 +91,7 @@ export const SamplingPanel: React.FC<SamplingPanelProps> = ({ settings, onChange
               <input
                 type="range"
                 min={0}
-                max={5.0}
+                max={20.0}
                 step={0.1}
                 value={settings.rdpEpsilon}
                 onChange={(e) => onChange({ rdpEpsilon: Number(e.target.value) })}
@@ -147,7 +148,7 @@ export const SamplingPanel: React.FC<SamplingPanelProps> = ({ settings, onChange
               <input
                 type="range"
                 min={0}
-                max={15.0}
+                max={50.0}
                 step={0.5}
                 value={settings.resampleSpacing}
                 onChange={(e) => onChange({ resampleSpacing: Number(e.target.value) })}
