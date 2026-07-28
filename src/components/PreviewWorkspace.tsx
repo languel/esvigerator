@@ -45,6 +45,7 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
   const isPanning = useRef(false);
   const startPan = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+  const rafId = useRef<number | null>(null);
 
   // Overlay toggles
   const [showRawPoints, setShowRawPoints] = useState(false);
@@ -69,25 +70,53 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
     resetTransform();
   }, [width, height, resetTransform]);
 
-  // Wheel zoom
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
-    const newZoom = Math.max(0.1, Math.min(50, zoom * zoomFactor));
+  // Smooth, non-choppy pinch & wheel zoom with requestAnimationFrame batching
+  const handleWheelNative = useCallback(
+    (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
 
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
+      if (!containerRef.current) return;
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const mouseX = e.clientX - containerRect.left;
+      const mouseY = e.clientY - containerRect.top;
 
-      setPan((prevPan) => ({
-        x: mouseX - (mouseX - prevPan.x) * (newZoom / zoom),
-        y: mouseY - (mouseY - prevPan.y) * (newZoom / zoom),
-      }));
-    }
+      const dy = e.deltaY;
+      // Use smooth exponential scaling proportional to deltaY
+      // Trackpad pinches use e.ctrlKey = true in browsers
+      const modeFactor = e.ctrlKey ? 0.008 : 0.0018;
+      const factor = Math.exp(-dy * modeFactor);
 
-    setZoom(newZoom);
-  };
+      if (rafId.current !== null) {
+        cancelAnimationFrame(rafId.current);
+      }
+
+      rafId.current = requestAnimationFrame(() => {
+        setZoom((prevZoom) => {
+          const newZoom = Math.max(0.05, Math.min(100, prevZoom * factor));
+          setPan((prevPan) => ({
+            x: mouseX - (mouseX - prevPan.x) * (newZoom / prevZoom),
+            y: mouseY - (mouseY - prevPan.y) * (newZoom / prevZoom),
+          }));
+          return newZoom;
+        });
+        rafId.current = null;
+      });
+    },
+    []
+  );
+
+  // Attach non-passive wheel listener directly to container
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    el.addEventListener('wheel', handleWheelNative, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', handleWheelNative);
+      if (rafId.current !== null) cancelAnimationFrame(rafId.current);
+    };
+  }, [handleWheelNative]);
 
   // Mouse pan
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -280,7 +309,6 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
   return (
     <div
       ref={containerRef}
-      onWheel={handleWheel}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
@@ -376,7 +404,7 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
 
           <div className="flex items-center bg-white/90 dark:bg-zinc-900/90 backdrop-blur p-1 rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-lg gap-0.5">
             <button
-              onClick={() => setZoom((z) => Math.max(0.1, z * 0.8))}
+              onClick={() => setZoom((z) => Math.max(0.05, z * 0.8))}
               className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition cursor-pointer"
               title="Zoom Out"
             >
@@ -386,7 +414,7 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
               {Math.round(zoom * 100)}%
             </span>
             <button
-              onClick={() => setZoom((z) => Math.min(50, z * 1.25))}
+              onClick={() => setZoom((z) => Math.min(100, z * 1.25))}
               className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition cursor-pointer"
               title="Zoom In"
             >
@@ -416,7 +444,7 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
           leftContent={
             <div
               style={{
-                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`,
                 transformOrigin: '0 0',
                 width,
                 height,
@@ -433,7 +461,7 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
           rightContent={
             <div
               style={{
-                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`,
                 transformOrigin: '0 0',
                 width,
                 height,
@@ -454,7 +482,7 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
       ) : (
         <div
           style={{
-            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`,
             transformOrigin: '0 0',
             width,
             height,
