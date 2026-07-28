@@ -151,15 +151,6 @@ export const App: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  const loadExampleNeuron = () => {
-    const img = new Image();
-    img.onload = () => {
-      setSourceImage(img);
-      setFilename('neuroon-src.png');
-    };
-    img.src = '/examples/neuroon-src.png';
-  };
-
   // Clipboard paste listener
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
@@ -252,7 +243,6 @@ export const App: React.FC = () => {
           };
           input.click();
         }}
-        onLoadExample={loadExampleNeuron}
         onReset={handleReset}
         onUndo={handleUndo}
         onRedo={handleRedo}
@@ -303,10 +293,7 @@ export const App: React.FC = () => {
               height={workerResult.height}
             />
           ) : (
-            <DropZone
-              onImageSelected={loadImageFromFile}
-              onLoadExample={loadExampleNeuron}
-            />
+            <DropZone onImageSelected={loadImageFromFile} />
           )}
         </main>
 

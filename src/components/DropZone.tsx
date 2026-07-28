@@ -1,12 +1,11 @@
 import React, { useRef } from 'react';
-import { Upload, Sparkles } from 'lucide-react';
+import { Upload } from 'lucide-react';
 
 interface DropZoneProps {
   onImageSelected: (file: File) => void;
-  onLoadExample: () => void;
 }
 
-export const DropZone: React.FC<DropZoneProps> = ({ onImageSelected, onLoadExample }) => {
+export const DropZone: React.FC<DropZoneProps> = ({ onImageSelected }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -40,8 +39,9 @@ export const DropZone: React.FC<DropZoneProps> = ({ onImageSelected, onLoadExamp
         </div>
 
         <div>
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Drop your raster image here</h2>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+          <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100 font-mono">esvigerator</h2>
+          <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300 mt-0.5">Drop your raster image here</p>
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1">
             Supports PNG, JPEG, WEBP, or paste from clipboard (Ctrl+V / Cmd+V)
           </p>
         </div>
@@ -57,17 +57,9 @@ export const DropZone: React.FC<DropZoneProps> = ({ onImageSelected, onLoadExamp
         <div className="flex items-center gap-3 pt-2">
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="px-4 py-2 bg-zinc-900 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 rounded-lg text-xs font-medium transition cursor-pointer shadow-sm"
+            className="px-5 py-2.5 bg-zinc-900 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm"
           >
             Browse Image
-          </button>
-
-          <button
-            onClick={onLoadExample}
-            className="flex items-center gap-1.5 px-4 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-lg text-xs font-medium transition cursor-pointer border border-zinc-200 dark:border-zinc-700"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
-            Load Neuron Example
           </button>
         </div>
       </div>

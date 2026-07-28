@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   FolderOpen,
-  Sparkles,
   RotateCcw,
   Undo2,
   Redo2,
@@ -18,7 +17,6 @@ interface TopBarProps {
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
   onOpenImage: () => void;
-  onLoadExample: () => void;
   onReset: () => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -37,7 +35,6 @@ export const TopBar: React.FC<TopBarProps> = ({
   theme,
   onToggleTheme,
   onOpenImage,
-  onLoadExample,
   onReset,
   onUndo,
   onRedo,
@@ -56,29 +53,21 @@ export const TopBar: React.FC<TopBarProps> = ({
       {/* Left: Brand & File actions */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2 pr-3 border-r border-zinc-200 dark:border-zinc-800">
-          <div className="h-7 w-7 rounded-lg bg-zinc-900 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-900 flex items-center justify-center font-bold shadow-sm">
-            D
+          <div className="h-7 w-7 rounded-lg bg-zinc-900 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-900 flex items-center justify-center font-bold text-xs shadow-sm font-mono">
+            SVG
           </div>
           <div>
-            <h1 className="text-sm font-semibold tracking-wide leading-none">Diagramator</h1>
+            <h1 className="text-sm font-bold tracking-wide leading-none font-mono">esvigerator</h1>
             <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">Raster-to-SVG</span>
           </div>
         </div>
 
         <button
           onClick={onOpenImage}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-xs font-medium transition cursor-pointer"
-        >
-          <FolderOpen className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
-          Open Image
-        </button>
-
-        <button
-          onClick={onLoadExample}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-zinc-900 dark:bg-zinc-100 text-zinc-100 dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-medium transition cursor-pointer shadow-sm"
         >
-          <Sparkles className="w-3.5 h-3.5" />
-          Neuron Example
+          <FolderOpen className="w-3.5 h-3.5" />
+          Open Image
         </button>
 
         {filename && (
