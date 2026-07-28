@@ -46,6 +46,10 @@ export const DEFAULT_TRACE_SETTINGS: TraceSettings = {
     maxIterations: 4,
     maxDepth: 32,
     seamStrategy: 'lowestCurvature',
+    strokeWidth: 2.5,
+    strokeCap: 'round',
+    strokeJoin: 'round',
+    pruneStubs: 5,
   },
   export: {
     precision: 1, // 0.1 decimal places
@@ -58,6 +62,18 @@ export const DEFAULT_TRACE_SETTINGS: TraceSettings = {
 
 export const PRESETS: Record<string, TraceSettings> = {
   'Clean line art': DEFAULT_TRACE_SETTINGS,
+
+  'Centerline Stroke (Fixed Width)': {
+    ...DEFAULT_TRACE_SETTINGS,
+    fitting: {
+      ...DEFAULT_TRACE_SETTINGS.fitting,
+      mode: 'centerline',
+      strokeWidth: 2.5,
+      strokeCap: 'round',
+      strokeJoin: 'round',
+      pruneStubs: 6,
+    },
+  },
 
   'Literal trace': {
     ...DEFAULT_TRACE_SETTINGS,

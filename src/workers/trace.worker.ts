@@ -1,6 +1,8 @@
 import { WorkerRequest, WorkerResponse } from './protocol';
 import { applyGrayscale, applyThreshold, filterConnectedComponents } from '../image/imageProcessing';
-import { findContours, ContourNode } from '../contours/findContours';
+import { findContours } from '../contours/findContours';
+import { zhangSuenThinning, extractSkeletonChains } from '../contours/skeleton';
+import { fitCenterlineChains } from '../fitting/centerline';
 import { simplifyDouglasPeucker } from '../contours/simplifyDouglasPeucker';
 import { resampleArcLength } from '../contours/resampleArcLength';
 import { fitCurve } from '../fitting/cubicFit/fitCurve';
@@ -53,7 +55,13 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
       settings.cleanup.minHoleArea
     );
 
-    // 4. Contour Extraction with Hierarchy
+    // 4. Extraction & Fitting
+    let bezierGroups: CubicBezier[][] = [];
+    let pathData = '';
+    let bezierSegmentsTotal = 0;
+    let maxErrorPx = 0;
+    let meanErrorPx = 0;
+
     let contours = findContours(
       cleanMask,
       width,
@@ -66,106 +74,128 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
       contours = contours.filter((c) => !c.isHole);
     }
 
-    // 5. Sampling & Simplification
     const simplifiedGroups: Point[][] = [];
     let rawPointsTotal = 0;
     let retainedPointsTotal = 0;
 
-    for (const node of contours) {
-      const pts = node.points;
-      rawPointsTotal += pts.length;
+    if (settings.fitting.mode === 'centerline') {
+      // Centerline Skeleton Extraction Engine
+      const skeleton = zhangSuenThinning(cleanMask, width, height);
+      const chains = extractSkeletonChains(skeleton, width, height, settings.fitting.pruneStubs);
 
-      let simp: Point[] = [];
-      if (settings.sampling.mode === 'douglasPeucker') {
-        const perimeter = node.perimeter;
-        const epsilon =
-          settings.sampling.simplifyRatio > 0
-            ? perimeter * settings.sampling.simplifyRatio
-            : settings.sampling.simplifyPixels;
-        simp = simplifyDouglasPeucker(pts, epsilon);
-      } else if (settings.sampling.mode === 'arcLength') {
-        simp = resampleArcLength(pts, settings.sampling.sampleSpacing);
-      } else {
-        simp = [...pts];
+      for (const chain of chains) {
+        rawPointsTotal += chain.points.length;
+        const simp = simplifyDouglasPeucker(chain.points, settings.fitting.maxError * 0.5);
+        simplifiedGroups.push(simp);
+        retainedPointsTotal += simp.length;
       }
 
-      simplifiedGroups.push(simp);
-      retainedPointsTotal += simp.length;
-    }
+      const clRes = fitCenterlineChains(
+        chains,
+        {
+          maxError: settings.fitting.maxError,
+          maxIterations: settings.fitting.maxIterations,
+          maxDepth: settings.fitting.maxDepth,
+        },
+        settings.export.precision,
+        settings.export.relativeCommands
+      );
 
-    // 6. Curve Fitting
-    let bezierGroups: CubicBezier[][] = [];
-    let pathData = '';
-    let bezierSegmentsTotal = 0;
-    let maxErrorPx = 0;
-    let meanErrorPx = 0;
-
-    if (settings.fitting.mode === 'potrace') {
-      const potraceRes = tracePotrace(imgData, {
-        turdsize: settings.cleanup.minComponentArea,
-        alphamax: 1.0,
-      });
-      pathData = potraceRes.paths.join(' ');
-      bezierGroups = potraceRes.curves;
-      for (const group of bezierGroups) bezierSegmentsTotal += group.length;
-    } else if (settings.fitting.mode === 'polygon') {
-      const paths: string[] = [];
-      for (const group of simplifiedGroups) {
-        paths.push(pointsToPolygonPath(group, true));
-      }
-      pathData = paths.join(' ');
-    } else if (settings.fitting.mode === 'catmullRom') {
-      for (const group of simplifiedGroups) {
-        const cubics = catmullRomClosedToCubics(group, {
-          tension: settings.fitting.tension,
-          type: 'centripetal',
-        });
-        bezierGroups.push(cubics);
-        bezierSegmentsTotal += cubics.length;
-      }
-      pathData = serializeCubicBeziersToPath(bezierGroups, {
-        precision: settings.export.precision,
-        relativeCommands: settings.export.relativeCommands,
-        closePaths: true,
-      });
+      pathData = clRes.pathData;
+      bezierGroups = clRes.bezierGroups;
+      bezierSegmentsTotal = clRes.bezierSegmentsTotal;
     } else {
-      // Schneider Error-Bounded Cubic Fit
-      const allSamplePoints: Point[] = [];
-      const allFittedCurves: CubicBezier[] = [];
+      // Outlined Boundary Contour Modes
+      for (const node of contours) {
+        const pts = node.points;
+        rawPointsTotal += pts.length;
 
-      for (let i = 0; i < contours.length; i++) {
-        const rawPts = contours[i].points;
-        const simpPts = simplifiedGroups[i];
-        const cubics = fitCurve(
-          simpPts,
-          {
-            maxError: settings.fitting.maxError,
-            maxIterations: settings.fitting.maxIterations,
-            maxDepth: settings.fitting.maxDepth,
-            seamStrategy: settings.fitting.seamStrategy,
-          },
-          true
-        );
+        let simp: Point[] = [];
+        if (settings.sampling.mode === 'douglasPeucker') {
+          const perimeter = node.perimeter;
+          const epsilon =
+            settings.sampling.simplifyRatio > 0
+              ? perimeter * settings.sampling.simplifyRatio
+              : settings.sampling.simplifyPixels;
+          simp = simplifyDouglasPeucker(pts, epsilon);
+        } else if (settings.sampling.mode === 'arcLength') {
+          simp = resampleArcLength(pts, settings.sampling.sampleSpacing);
+        } else {
+          simp = [...pts];
+        }
 
-        bezierGroups.push(cubics);
-        bezierSegmentsTotal += cubics.length;
-
-        allSamplePoints.push(...rawPts);
-        allFittedCurves.push(...cubics);
+        simplifiedGroups.push(simp);
+        retainedPointsTotal += simp.length;
       }
 
-      pathData = serializeCubicBeziersToPath(bezierGroups, {
-        precision: settings.export.precision,
-        relativeCommands: settings.export.relativeCommands,
-        closePaths: true,
-      });
+      if (settings.fitting.mode === 'potrace') {
+        const potraceRes = tracePotrace(imgData, {
+          turdsize: settings.cleanup.minComponentArea,
+          alphamax: 1.0,
+        });
+        pathData = potraceRes.paths.join(' ');
+        bezierGroups = potraceRes.curves;
+        for (const group of bezierGroups) bezierSegmentsTotal += group.length;
+      } else if (settings.fitting.mode === 'polygon') {
+        const paths: string[] = [];
+        for (const group of simplifiedGroups) {
+          paths.push(pointsToPolygonPath(group, true));
+        }
+        pathData = paths.join(' ');
+      } else if (settings.fitting.mode === 'catmullRom') {
+        for (const group of simplifiedGroups) {
+          const cubics = catmullRomClosedToCubics(group, {
+            tension: settings.fitting.tension,
+            type: 'centripetal',
+          });
+          bezierGroups.push(cubics);
+          bezierSegmentsTotal += cubics.length;
+        }
+        pathData = serializeCubicBeziersToPath(bezierGroups, {
+          precision: settings.export.precision,
+          relativeCommands: settings.export.relativeCommands,
+          closePaths: true,
+        });
+      } else {
+        // Schneider Error-Bounded Cubic Fit
+        const allSamplePoints: Point[] = [];
+        const allFittedCurves: CubicBezier[] = [];
 
-      const errRes = computeOverallError(allSamplePoints, allFittedCurves);
-      maxErrorPx = errRes.maxErrorPx;
-      meanErrorPx = errRes.meanErrorPx;
+        for (let i = 0; i < contours.length; i++) {
+          const rawPts = contours[i].points;
+          const simpPts = simplifiedGroups[i];
+          const cubics = fitCurve(
+            simpPts,
+            {
+              maxError: settings.fitting.maxError,
+              maxIterations: settings.fitting.maxIterations,
+              maxDepth: settings.fitting.maxDepth,
+              seamStrategy: settings.fitting.seamStrategy,
+            },
+            true
+          );
+
+          bezierGroups.push(cubics);
+          bezierSegmentsTotal += cubics.length;
+
+          allSamplePoints.push(...rawPts);
+          allFittedCurves.push(...cubics);
+        }
+
+        pathData = serializeCubicBeziersToPath(bezierGroups, {
+          precision: settings.export.precision,
+          relativeCommands: settings.export.relativeCommands,
+          closePaths: true,
+        });
+
+        const errRes = computeOverallError(allSamplePoints, allFittedCurves);
+        maxErrorPx = errRes.maxErrorPx;
+        meanErrorPx = errRes.meanErrorPx;
+      }
     }
 
-    // 7. Full SVG Document & Stats
+    // 5. SVG Document & Stats
+    const isCenterline = settings.fitting.mode === 'centerline';
     const svgString = generateSvgDocument({
       width,
       height,
@@ -174,6 +204,10 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
       fillRule: settings.contours.fillRule,
       transparentBackground: settings.export.transparentBackground,
       prettyPrint: settings.export.prettyPrint,
+      isStrokeMode: isCenterline,
+      strokeWidth: settings.fitting.strokeWidth,
+      strokeCap: settings.fitting.strokeCap,
+      strokeJoin: settings.fitting.strokeJoin,
     });
 
     const holesCount = contours.filter((c) => c.isHole).length;

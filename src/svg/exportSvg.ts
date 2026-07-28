@@ -9,6 +9,10 @@ export interface ExportSvgOptions {
   includeDimensions?: boolean;
   viewBoxOnly?: boolean;
   prettyPrint?: boolean;
+  isStrokeMode?: boolean;
+  strokeWidth?: number;
+  strokeCap?: 'round' | 'butt' | 'square';
+  strokeJoin?: 'round' | 'miter' | 'bevel';
 }
 
 export function generateSvgDocument(options: ExportSvgOptions): string {
@@ -19,6 +23,11 @@ export function generateSvgDocument(options: ExportSvgOptions): string {
   const transparent = options.transparentBackground ?? true;
   const bgColor = options.backgroundColor ?? '#ffffff';
 
+  const isStroke = options.isStrokeMode ?? false;
+  const strokeWidth = options.strokeWidth ?? 2.5;
+  const strokeCap = options.strokeCap ?? 'round';
+  const strokeJoin = options.strokeJoin ?? 'round';
+
   const dimAttr = options.includeDimensions && !options.viewBoxOnly ? ` width="${width}" height="${height}"` : '';
 
   let bgRect = '';
@@ -26,12 +35,25 @@ export function generateSvgDocument(options: ExportSvgOptions): string {
     bgRect = `  <rect width="100%" height="100%" fill="${bgColor}"/>\n`;
   }
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}"${dimAttr}>
-${bgRect}  <path
+  let pathElement = '';
+  if (isStroke) {
+    pathElement = `  <path
+    d="${options.pathData}"
+    fill="none"
+    stroke="${fillColor}"
+    stroke-width="${strokeWidth}"
+    stroke-linecap="${strokeCap}"
+    stroke-linejoin="${strokeJoin}"/>`;
+  } else {
+    pathElement = `  <path
     d="${options.pathData}"
     fill="${fillColor}"
     fill-rule="${fillRule}"
-    clip-rule="${fillRule}"/>
+    clip-rule="${fillRule}"/>`;
+  }
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}"${dimAttr}>
+${bgRect}${pathElement}
 </svg>`;
 
   return options.prettyPrint ? svg : svg.replace(/\n\s*/g, ' ').trim();

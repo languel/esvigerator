@@ -28,13 +28,80 @@ export const FittingPanel: React.FC<FittingPanelProps> = ({ settings, onChange }
             onChange={(e) => onChange({ mode: e.target.value as any })}
             className="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded px-2.5 py-1.5 text-zinc-900 dark:text-zinc-100 text-xs font-medium focus:outline-none focus:border-zinc-500 shadow-sm"
           >
-            <option value="cubicFit">Custom Schneider Error-Bounded Bézier (Recommended)</option>
+            <option value="cubicFit">Custom Schneider Error-Bounded Bézier (Outline Ribbon)</option>
+            <option value="centerline">Centerline Skeleton Stroke (Fixed Width Human Style)</option>
             <option value="catmullRom">Catmull-Rom Spline to Cubic Béziers</option>
             <option value="polygon">Straight Polygon Segments (Diagnostic)</option>
             <option value="potrace">Potrace Baseline Engine</option>
           </select>
         </div>
 
+        {/* Centerline Skeleton Mode Controls */}
+        {settings.mode === 'centerline' && (
+          <div className="space-y-2.5 bg-white dark:bg-zinc-950 p-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-xs">
+            <div>
+              <div className="flex items-center justify-between text-[11px] mb-1">
+                <span className="text-zinc-700 dark:text-zinc-300 font-medium">Stroke Width (px)</span>
+                <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">{settings.strokeWidth} px</span>
+              </div>
+              <input
+                type="range"
+                min={0.5}
+                max={15.0}
+                step={0.5}
+                value={settings.strokeWidth}
+                onChange={(e) => onChange({ strokeWidth: Number(e.target.value) })}
+                className="w-full h-2 bg-zinc-200 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-zinc-800 dark:accent-zinc-200"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[10px] text-zinc-500 dark:text-zinc-400 mb-1">Line Cap</label>
+                <select
+                  value={settings.strokeCap}
+                  onChange={(e) => onChange({ strokeCap: e.target.value as any })}
+                  className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded px-2 py-1 text-zinc-800 dark:text-zinc-200 text-xs"
+                >
+                  <option value="round">round</option>
+                  <option value="butt">butt</option>
+                  <option value="square">square</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-zinc-500 dark:text-zinc-400 mb-1">Line Join</label>
+                <select
+                  value={settings.strokeJoin}
+                  onChange={(e) => onChange({ strokeJoin: e.target.value as any })}
+                  className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded px-2 py-1 text-zinc-800 dark:text-zinc-200 text-xs"
+                >
+                  <option value="round">round</option>
+                  <option value="miter">miter</option>
+                  <option value="bevel">bevel</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between text-[11px] mb-1">
+                <span className="text-zinc-500 dark:text-zinc-400">Prune Stub Threshold</span>
+                <span className="font-mono text-zinc-800 dark:text-zinc-200">{settings.pruneStubs} px</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={25}
+                step={1}
+                value={settings.pruneStubs}
+                onChange={(e) => onChange({ pruneStubs: Number(e.target.value) })}
+                className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-zinc-800 dark:accent-zinc-200"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Cubic Fit Mode Controls */}
         {settings.mode === 'cubicFit' && (
           <div className="space-y-2 bg-white dark:bg-zinc-950 p-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-xs">
             <div>

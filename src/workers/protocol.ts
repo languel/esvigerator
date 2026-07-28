@@ -42,12 +42,16 @@ export interface TraceSettings {
     cornerAngleDegrees: number;
   };
   fitting: {
-    mode: 'polygon' | 'catmullRom' | 'cubicFit' | 'potrace';
+    mode: 'polygon' | 'catmullRom' | 'cubicFit' | 'potrace' | 'centerline';
     maxError: number; // e.g. 1.5 px
     tension: number; // Catmull-Rom tension
     maxIterations: number;
     maxDepth: number;
     seamStrategy: 'lowestCurvature' | 'firstPoint';
+    strokeWidth: number; // e.g. 2.5 px
+    strokeCap: 'round' | 'butt' | 'square';
+    strokeJoin: 'round' | 'miter' | 'bevel';
+    pruneStubs: number; // e.g. 5 px
   };
   export: {
     precision: number | null; // 0, 1, 2, 3 or null
