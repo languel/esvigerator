@@ -55,6 +55,7 @@ export interface TraceSettings {
     strokeCap: 'round' | 'butt' | 'square';
     strokeJoin: 'round' | 'miter' | 'bevel';
     pruneStubs: number; // e.g. 5 px
+    mergeDistance: number; // e.g. 8.0 px
   };
   export: {
     precision: number | null; // 0, 1, 2, 3 or null

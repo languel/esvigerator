@@ -53,6 +53,7 @@ export const DEFAULT_TRACE_SETTINGS: TraceSettings = {
     strokeCap: 'round',
     strokeJoin: 'round',
     pruneStubs: 5,
+    mergeDistance: 8.0,
   },
   export: {
     precision: 1, // 0.1 decimal places
@@ -81,6 +82,7 @@ export const PRESETS: Record<string, TraceSettings> = {
       strokeCap: 'round',
       strokeJoin: 'round',
       pruneStubs: 6,
+      mergeDistance: 10.0,
       maxError: 2.0,
     },
   },

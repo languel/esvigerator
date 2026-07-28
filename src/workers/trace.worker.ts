@@ -1,7 +1,7 @@
 import { WorkerRequest, WorkerResponse } from './protocol';
 import { applyGrayscale, applyThreshold, filterConnectedComponents } from '../image/imageProcessing';
 import { findContours } from '../contours/findContours';
-import { zhangSuenThinning, extractSkeletonChains } from '../contours/skeleton';
+import { zhangSuenThinning, extractSkeletonChains, mergeChainsByDistance } from '../contours/skeleton';
 import { fitCenterlineChains } from '../fitting/centerline';
 import { simplifyDouglasPeucker } from '../contours/simplifyDouglasPeucker';
 import { resampleArcLength } from '../contours/resampleArcLength';
@@ -82,7 +82,12 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     if (settings.fitting.mode === 'centerline') {
       // Centerline Skeleton Extraction Engine
       const skeleton = zhangSuenThinning(cleanMask, width, height);
-      const rawChains = extractSkeletonChains(skeleton, width, height, settings.fitting.pruneStubs);
+      let rawChains = extractSkeletonChains(skeleton, width, height, settings.fitting.pruneStubs);
+
+      // Merge nearby endpoints by distance to consolidate fragmented subsegments
+      if (settings.fitting.mergeDistance > 0) {
+        rawChains = mergeChainsByDistance(rawChains, settings.fitting.mergeDistance);
+      }
 
       // Apply Post-Simplification Pipeline on Centerline Chains
       const processedChains = rawChains.map((chain) => {

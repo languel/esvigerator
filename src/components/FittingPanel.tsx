@@ -55,6 +55,22 @@ export const FittingPanel: React.FC<FittingPanelProps> = ({ settings, onChange }
               />
             </div>
 
+            <div>
+              <div className="flex items-center justify-between text-[11px] mb-1">
+                <span className="text-zinc-700 dark:text-zinc-300 font-medium">Merge Nearby Endpoints (px)</span>
+                <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">{settings.mergeDistance} px</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={25.0}
+                step={0.5}
+                value={settings.mergeDistance}
+                onChange={(e) => onChange({ mergeDistance: Number(e.target.value) })}
+                className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-zinc-800 dark:accent-zinc-200"
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-[10px] text-zinc-500 dark:text-zinc-400 mb-1">Line Cap</label>

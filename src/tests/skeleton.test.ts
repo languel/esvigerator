@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { zhangSuenThinning, extractSkeletonChains } from '../contours/skeleton';
+import { zhangSuenThinning, extractSkeletonChains, mergeChainsByDistance, CenterlineChain } from '../contours/skeleton';
 
-describe('Centerline Skeleton Extraction & Thinning', () => {
+describe('Centerline Skeleton Extraction & Merging', () => {
   it('thins a thick line down to a 1-pixel wide skeleton', () => {
     const width = 20;
     const height = 20;
@@ -16,7 +16,6 @@ describe('Centerline Skeleton Extraction & Thinning', () => {
 
     const skeleton = zhangSuenThinning(binary, width, height);
 
-    // Count non-zero skeleton pixels along vertical slice
     let thinnedWidth = 0;
     for (let y = 0; y < height; y++) {
       if (skeleton[y * width + 10] === 1) {
@@ -32,7 +31,6 @@ describe('Centerline Skeleton Extraction & Thinning', () => {
     const height = 20;
     const binary = new Uint8Array(width * height);
 
-    // Draw a horizontal line
     for (let x = 2; x < 18; x++) {
       binary[10 * width + x] = 255;
     }
@@ -42,5 +40,28 @@ describe('Centerline Skeleton Extraction & Thinning', () => {
 
     expect(chains.length).toBeGreaterThan(0);
     expect(chains[0].points.length).toBeGreaterThan(5);
+  });
+
+  it('merges nearby disjoint chains into long continuous stroke paths', () => {
+    const chain1: CenterlineChain = {
+      points: [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+      ],
+      isClosed: false,
+    };
+    const chain2: CenterlineChain = {
+      points: [
+        { x: 12, y: 1 },
+        { x: 25, y: 0 },
+      ],
+      isClosed: false,
+    };
+
+    const merged = mergeChainsByDistance([chain1, chain2], 5.0);
+    expect(merged.length).toBe(1);
+    expect(merged[0].points.length).toBe(4);
+    expect(merged[0].points[0]).toEqual({ x: 0, y: 0 });
+    expect(merged[0].points[3]).toEqual({ x: 25, y: 0 });
   });
 });

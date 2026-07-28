@@ -48,7 +48,6 @@ export function zhangSuenThinning(
         const n = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9;
         if (n < 2 || n > 6) continue;
 
-        // Count 0-to-1 transitions in ring p2->p3->p4->p5->p6->p7->p8->p9->p2
         let s = 0;
         if (p2 === 0 && p3 === 1) s++;
         if (p3 === 0 && p4 === 1) s++;
@@ -153,7 +152,6 @@ export function extractSkeletonChains(
     return res;
   }
 
-  // 1. Identify Junctions (3+ neighbors) and Endpoints (1 neighbor)
   const endpoints: [number, number][] = [];
   const junctions: [number, number][] = [];
 
@@ -173,7 +171,6 @@ export function extractSkeletonChains(
 
   const chains: CenterlineChain[] = [];
 
-  // Helper to trace chain starting at a seed pixel in a given direction
   function traceChainFrom(startX: number, startY: number, firstNeighbor: [number, number]): Point[] {
     const chain: Point[] = [{ x: startX, y: startY }];
     let currX = firstNeighbor[0];
@@ -192,7 +189,6 @@ export function extractSkeletonChains(
       const neighbors = getNeighborIndices(currX, currY);
       const unvisited = neighbors.filter(([nx, ny]) => visited[ny * width + nx] === 0);
 
-      // Stop if reached a junction or endpoint
       if (neighbors.length >= 3 || unvisited.length === 0) {
         break;
       }
@@ -205,7 +201,6 @@ export function extractSkeletonChains(
     return chain;
   }
 
-  // Trace starting from Endpoints
   for (const [epX, epY] of endpoints) {
     const neighbors = getNeighborIndices(epX, epY);
     for (const nb of neighbors) {
@@ -218,7 +213,6 @@ export function extractSkeletonChains(
     }
   }
 
-  // Trace starting from Junctions
   for (const [jX, jY] of junctions) {
     const neighbors = getNeighborIndices(jX, jY);
     for (const nb of neighbors) {
@@ -231,7 +225,6 @@ export function extractSkeletonChains(
     }
   }
 
-  // Trace remaining closed loop components
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const idx = y * width + x;
@@ -247,7 +240,6 @@ export function extractSkeletonChains(
     }
   }
 
-  // Filter / prune short stub branches
   return chains.filter((c) => {
     if (c.isClosed) return c.points.length >= 3;
     let len = 0;
@@ -256,4 +248,96 @@ export function extractSkeletonChains(
     }
     return len >= pruneStubsLength;
   });
+}
+
+/**
+ * Merges adjacent centerline chains whose endpoints are closer than maxMergeDistance.
+ * Consolidates fragmented subsegments into long, continuous paths.
+ */
+export function mergeChainsByDistance(
+  chains: CenterlineChain[],
+  maxMergeDist = 8.0
+): CenterlineChain[] {
+  if (chains.length < 2 || maxMergeDist <= 0) return chains;
+
+  let active = chains.map((c) => ({
+    points: [...c.points],
+    isClosed: c.isClosed,
+  }));
+
+  let mergedAny = true;
+
+  while (mergedAny) {
+    mergedAny = false;
+    const next: typeof active = [];
+    const used = new Uint8Array(active.length);
+
+    for (let i = 0; i < active.length; i++) {
+      if (used[i]) continue;
+      const chainA = active[i];
+
+      if (chainA.isClosed || chainA.points.length < 2) {
+        next.push(chainA);
+        used[i] = 1;
+        continue;
+      }
+
+      let mergedThisRound = false;
+
+      for (let j = i + 1; j < active.length; j++) {
+        if (used[j]) continue;
+        const chainB = active[j];
+
+        if (chainB.isClosed || chainB.points.length < 2) continue;
+
+        const aStart = chainA.points[0];
+        const aEnd = chainA.points[chainA.points.length - 1];
+        const bStart = chainB.points[0];
+        const bEnd = chainB.points[chainB.points.length - 1];
+
+        // 1. A_end to B_start
+        if (distance(aEnd, bStart) <= maxMergeDist) {
+          chainA.points.push(...chainB.points);
+          used[j] = 1;
+          mergedThisRound = true;
+          mergedAny = true;
+          break;
+        }
+
+        // 2. A_end to B_end
+        if (distance(aEnd, bEnd) <= maxMergeDist) {
+          chainA.points.push(...[...chainB.points].reverse());
+          used[j] = 1;
+          mergedThisRound = true;
+          mergedAny = true;
+          break;
+        }
+
+        // 3. A_start to B_start
+        if (distance(aStart, bStart) <= maxMergeDist) {
+          chainA.points = [...[...chainB.points].reverse(), ...chainA.points];
+          used[j] = 1;
+          mergedThisRound = true;
+          mergedAny = true;
+          break;
+        }
+
+        // 4. A_start to B_end
+        if (distance(aStart, bEnd) <= maxMergeDist) {
+          chainA.points = [...chainB.points, ...chainA.points];
+          used[j] = 1;
+          mergedThisRound = true;
+          mergedAny = true;
+          break;
+        }
+      }
+
+      next.push(chainA);
+      used[i] = 1;
+    }
+
+    active = next;
+  }
+
+  return active;
 }
