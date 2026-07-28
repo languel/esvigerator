@@ -93,21 +93,25 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
       const processedChains = rawChains.map((chain) => {
         rawPointsTotal += chain.points.length;
 
-        // 1. RDP Simplification
         let pts = chain.points;
-        if (settings.sampling.rdpEpsilon > 0) {
-          pts = simplifyDouglasPeucker(pts, settings.sampling.rdpEpsilon);
-        }
 
-        // 2. Moving Average Smoothing Filter
+        // 1. Moving Average Smoothing Filter (smooth 1px pixel stair-stepping first)
         if (settings.sampling.smoothingPasses > 0) {
           pts = smoothPoints(pts, settings.sampling.smoothingPasses, chain.isClosed);
         }
 
-        // 3. Uniform Arc-Length Resampling
+        // 2. Uniform Arc-Length Resampling (coarse spacing if enabled)
         if (settings.sampling.resampleSpacing > 0) {
           pts = resampleArcLength(pts, settings.sampling.resampleSpacing);
         }
+
+        // 3. RDP Simplification LAST (strips away all dense collinear / shallow points)
+        const effectiveRdp =
+          settings.sampling.rdpEpsilon > 0
+            ? settings.sampling.rdpEpsilon
+            : Math.max(1.0, settings.fitting.maxError * 0.8);
+
+        pts = simplifyDouglasPeucker(pts, effectiveRdp);
 
         simplifiedGroups.push(pts);
         retainedPointsTotal += pts.length;
@@ -149,12 +153,12 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
           simp = [...rawPts];
         }
 
-        // Apply RDP & Smoothing if configured
-        if (settings.sampling.rdpEpsilon > 0) {
-          simp = simplifyDouglasPeucker(simp, settings.sampling.rdpEpsilon);
-        }
+        // Apply Smoothing then RDP LAST
         if (settings.sampling.smoothingPasses > 0) {
           simp = smoothPoints(simp, settings.sampling.smoothingPasses, true);
+        }
+        if (settings.sampling.rdpEpsilon > 0) {
+          simp = simplifyDouglasPeucker(simp, settings.sampling.rdpEpsilon);
         }
 
         simplifiedGroups.push(simp);
