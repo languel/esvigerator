@@ -63,9 +63,9 @@ export const FittingPanel: React.FC<FittingPanelProps> = ({ settings, onChange }
               <input
                 type="range"
                 min={0}
-                max={25.0}
+                max={10.0}
                 step={0.5}
-                value={settings.mergeDistance}
+                value={Math.min(10.0, settings.mergeDistance)}
                 onChange={(e) => onChange({ mergeDistance: Number(e.target.value) })}
                 className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-zinc-800 dark:accent-zinc-200"
               />
@@ -128,7 +128,7 @@ export const FittingPanel: React.FC<FittingPanelProps> = ({ settings, onChange }
               <input
                 type="range"
                 min={0.1}
-                max={15.0}
+                max={20.0}
                 step={0.1}
                 value={settings.maxError}
                 onChange={(e) => onChange({ maxError: Number(e.target.value) })}
@@ -137,7 +137,7 @@ export const FittingPanel: React.FC<FittingPanelProps> = ({ settings, onChange }
               <div className="flex justify-between text-[10px] text-zinc-400 mt-0.5">
                 <span>0.1 (High Fidelity)</span>
                 <span>1.5 (Default)</span>
-                <span>15.0 (Ultra Smooth)</span>
+                <span>20.0 (Ultra Smooth)</span>
               </div>
             </div>
 
