@@ -5,6 +5,7 @@ import { zhangSuenThinning, extractSkeletonChains } from '../contours/skeleton';
 import { fitCenterlineChains } from '../fitting/centerline';
 import { simplifyDouglasPeucker } from '../contours/simplifyDouglasPeucker';
 import { resampleArcLength } from '../contours/resampleArcLength';
+import { smoothPoints } from '../contours/smoothing';
 import { fitCurve } from '../fitting/cubicFit/fitCurve';
 import { catmullRomClosedToCubics } from '../fitting/catmullRom';
 import { pointsToPolygonPath } from '../fitting/polygon';
@@ -81,17 +82,36 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     if (settings.fitting.mode === 'centerline') {
       // Centerline Skeleton Extraction Engine
       const skeleton = zhangSuenThinning(cleanMask, width, height);
-      const chains = extractSkeletonChains(skeleton, width, height, settings.fitting.pruneStubs);
+      const rawChains = extractSkeletonChains(skeleton, width, height, settings.fitting.pruneStubs);
 
-      for (const chain of chains) {
+      // Apply Post-Simplification Pipeline on Centerline Chains
+      const processedChains = rawChains.map((chain) => {
         rawPointsTotal += chain.points.length;
-        const simp = simplifyDouglasPeucker(chain.points, settings.fitting.maxError * 0.5);
-        simplifiedGroups.push(simp);
-        retainedPointsTotal += simp.length;
-      }
+
+        // 1. RDP Simplification
+        let pts = chain.points;
+        if (settings.sampling.rdpEpsilon > 0) {
+          pts = simplifyDouglasPeucker(pts, settings.sampling.rdpEpsilon);
+        }
+
+        // 2. Moving Average Smoothing Filter
+        if (settings.sampling.smoothingPasses > 0) {
+          pts = smoothPoints(pts, settings.sampling.smoothingPasses, chain.isClosed);
+        }
+
+        // 3. Uniform Arc-Length Resampling
+        if (settings.sampling.resampleSpacing > 0) {
+          pts = resampleArcLength(pts, settings.sampling.resampleSpacing);
+        }
+
+        simplifiedGroups.push(pts);
+        retainedPointsTotal += pts.length;
+
+        return { points: pts, isClosed: chain.isClosed };
+      });
 
       const clRes = fitCenterlineChains(
-        chains,
+        processedChains,
         {
           maxError: settings.fitting.maxError,
           maxIterations: settings.fitting.maxIterations,
@@ -107,8 +127,8 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     } else {
       // Outlined Boundary Contour Modes
       for (const node of contours) {
-        const pts = node.points;
-        rawPointsTotal += pts.length;
+        const rawPts = node.points;
+        rawPointsTotal += rawPts.length;
 
         let simp: Point[] = [];
         if (settings.sampling.mode === 'douglasPeucker') {
@@ -117,11 +137,19 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
             settings.sampling.simplifyRatio > 0
               ? perimeter * settings.sampling.simplifyRatio
               : settings.sampling.simplifyPixels;
-          simp = simplifyDouglasPeucker(pts, epsilon);
+          simp = simplifyDouglasPeucker(rawPts, epsilon);
         } else if (settings.sampling.mode === 'arcLength') {
-          simp = resampleArcLength(pts, settings.sampling.sampleSpacing);
+          simp = resampleArcLength(rawPts, settings.sampling.sampleSpacing);
         } else {
-          simp = [...pts];
+          simp = [...rawPts];
+        }
+
+        // Apply RDP & Smoothing if configured
+        if (settings.sampling.rdpEpsilon > 0) {
+          simp = simplifyDouglasPeucker(simp, settings.sampling.rdpEpsilon);
+        }
+        if (settings.sampling.smoothingPasses > 0) {
+          simp = smoothPoints(simp, settings.sampling.smoothingPasses, true);
         }
 
         simplifiedGroups.push(simp);

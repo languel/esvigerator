@@ -40,6 +40,9 @@ export interface TraceSettings {
     sampleSpacing: number; // e.g. 5.0
     preserveCorners: boolean;
     cornerAngleDegrees: number;
+    rdpEpsilon: number; // e.g. 1.2 px
+    smoothingPasses: number; // e.g. 2 passes
+    resampleSpacing: number; // e.g. 4.0 px
   };
   fitting: {
     mode: 'polygon' | 'catmullRom' | 'cubicFit' | 'potrace' | 'centerline';
@@ -80,7 +83,7 @@ export interface WorkerResponse {
   result?: {
     width: number;
     height: number;
-    maskData: ArrayBuffer; // Binary mask bytes for display
+    maskData: ArrayBuffer;
     contours: ContourNode[];
     simplifiedPoints: Point[][];
     bezierGroups: CubicBezier[][];

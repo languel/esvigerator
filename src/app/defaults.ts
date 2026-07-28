@@ -38,6 +38,9 @@ export const DEFAULT_TRACE_SETTINGS: TraceSettings = {
     sampleSpacing: 5.0,
     preserveCorners: true,
     cornerAngleDegrees: 45,
+    rdpEpsilon: 1.2,
+    smoothingPasses: 2,
+    resampleSpacing: 4.0,
   },
   fitting: {
     mode: 'cubicFit',
@@ -65,6 +68,12 @@ export const PRESETS: Record<string, TraceSettings> = {
 
   'Centerline Stroke (Fixed Width)': {
     ...DEFAULT_TRACE_SETTINGS,
+    sampling: {
+      ...DEFAULT_TRACE_SETTINGS.sampling,
+      rdpEpsilon: 1.5,
+      smoothingPasses: 3,
+      resampleSpacing: 5.0,
+    },
     fitting: {
       ...DEFAULT_TRACE_SETTINGS.fitting,
       mode: 'centerline',
@@ -72,6 +81,7 @@ export const PRESETS: Record<string, TraceSettings> = {
       strokeCap: 'round',
       strokeJoin: 'round',
       pruneStubs: 6,
+      maxError: 2.0,
     },
   },
 
@@ -80,6 +90,8 @@ export const PRESETS: Record<string, TraceSettings> = {
     sampling: {
       ...DEFAULT_TRACE_SETTINGS.sampling,
       mode: 'raw',
+      rdpEpsilon: 0,
+      smoothingPasses: 0,
     },
     fitting: {
       ...DEFAULT_TRACE_SETTINGS.fitting,
@@ -93,6 +105,7 @@ export const PRESETS: Record<string, TraceSettings> = {
       ...DEFAULT_TRACE_SETTINGS.sampling,
       mode: 'douglasPeucker',
       simplifyRatio: 0.0015,
+      smoothingPasses: 4,
     },
     fitting: {
       ...DEFAULT_TRACE_SETTINGS.fitting,
@@ -120,6 +133,8 @@ export const PRESETS: Record<string, TraceSettings> = {
       ...DEFAULT_TRACE_SETTINGS.sampling,
       mode: 'douglasPeucker',
       simplifyRatio: 0.003,
+      rdpEpsilon: 2.5,
+      smoothingPasses: 4,
     },
     fitting: {
       ...DEFAULT_TRACE_SETTINGS.fitting,
