@@ -9,15 +9,12 @@ export function generateBezier(
   const p0 = points[0];
   const p3 = points[points.length - 1];
 
-  let c1: Point;
-  let c2: Point;
+  const segLength = distance(p0, p3);
 
-  const n = points.length;
-
-  if (n === 2) {
-    const dist = distance(p0, p3) / 3;
-    c1 = add(p0, mul(leftTangent, dist));
-    c2 = add(p3, mul(rightTangent, dist));
+  if (points.length === 2 || segLength < 1e-6) {
+    const dist = segLength / 3;
+    const c1 = add(p0, mul(leftTangent, dist));
+    const c2 = add(p3, mul(rightTangent, dist));
     return { p0, c1, c2, p1: p3 };
   }
 
@@ -27,6 +24,8 @@ export function generateBezier(
   let c22 = 0;
   let x1 = 0;
   let x2 = 0;
+
+  const n = points.length;
 
   for (let i = 0; i < n; i++) {
     const ui = u[i];
@@ -58,10 +57,21 @@ export function generateBezier(
   let alphaL = detC0C1 === 0 ? 0 : detXC1 / detC0C1;
   let alphaR = detC0C1 === 0 ? 0 : detC0X / detC0C1;
 
-  const segLength = distance(p0, p3);
-  const epsilon = 1e-6 * segLength;
+  // Maximum allowed control handle length (Schneider heuristics)
+  const maxAlpha = segLength * 1.2;
+  const minAlpha = 1e-4;
 
-  if (alphaL < epsilon || alphaR < epsilon) {
+  let c1: Point;
+  let c2: Point;
+
+  if (
+    isNaN(alphaL) ||
+    isNaN(alphaR) ||
+    alphaL < minAlpha ||
+    alphaR < minAlpha ||
+    alphaL > maxAlpha ||
+    alphaR > maxAlpha
+  ) {
     const dist = segLength / 3;
     c1 = add(p0, mul(leftTangent, dist));
     c2 = add(p3, mul(rightTangent, dist));

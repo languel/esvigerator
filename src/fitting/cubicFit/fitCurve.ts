@@ -1,4 +1,4 @@
-import { Point, CubicBezier, sub, distance, negate, turningAngle } from '../../geometry/point';
+import { Point, CubicBezier, distance, negate, turningAngle } from '../../geometry/point';
 import { chordLengthParameterize } from './parameterize';
 import { generateBezier } from './generateBezier';
 import { reparameterize } from './reparameterize';
@@ -69,11 +69,11 @@ function fitCubicRecursive(
 
   if (depth >= maxDepth || splitIndex <= 0 || splitIndex >= points.length - 1) {
     const mid = Math.floor(points.length / 2);
-    const leftTan = estimateCenterTangent(points, mid);
+    const centerTan = estimateCenterTangent(points, mid);
     const left = fitCubicRecursive(
       points.slice(0, mid + 1),
       leftTangent,
-      leftTan,
+      negate(centerTan),
       maxErrorPx,
       maxIterations,
       maxDepth,
@@ -81,7 +81,7 @@ function fitCubicRecursive(
     );
     const right = fitCubicRecursive(
       points.slice(mid),
-      negate(leftTan),
+      centerTan,
       rightTangent,
       maxErrorPx,
       maxIterations,
@@ -93,19 +93,21 @@ function fitCubicRecursive(
 
   const centerTangent = estimateCenterTangent(points, splitIndex);
 
+  // Left sub-sequence: right tangent points backward into left segment (negate)
   const left = fitCubicRecursive(
     points.slice(0, splitIndex + 1),
     leftTangent,
-    centerTangent,
+    negate(centerTangent),
     maxErrorPx,
     maxIterations,
     maxDepth,
     depth + 1
   );
 
+  // Right sub-sequence: left tangent points forward into right segment
   const right = fitCubicRecursive(
     points.slice(splitIndex),
-    negate(centerTangent),
+    centerTangent,
     rightTangent,
     maxErrorPx,
     maxIterations,
@@ -150,7 +152,12 @@ export function fitCurve(
   let workPoints = [...points];
 
   if (isClosed && workPoints.length >= 3) {
-    if (options.seamStrategy !== 'firstPoint') {
+    // Remove existing duplicate endpoint if present
+    if (distance(workPoints[0], workPoints[workPoints.length - 1]) < 1e-4) {
+      workPoints.pop();
+    }
+
+    if (options.seamStrategy !== 'firstPoint' && workPoints.length >= 4) {
       const seamIndex = findLowestCurvatureSeam(workPoints);
       if (seamIndex > 0) {
         workPoints = [
@@ -159,12 +166,8 @@ export function fitCurve(
         ];
       }
     }
-    // Make sure closed points loop back explicitly
-    const first = workPoints[0];
-    const last = workPoints[workPoints.length - 1];
-    if (distance(first, last) > 1e-4) {
-      workPoints.push({ ...first });
-    }
+    // Duplicate initial point at end to complete loop
+    workPoints.push({ ...workPoints[0] });
   }
 
   const leftTangent = estimateLeftTangent(workPoints);
