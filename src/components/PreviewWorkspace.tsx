@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, MousePointer2, Palette } from 'lucide-react';
 import { Point, CubicBezier } from '../geometry/point';
 import { ContourNode } from '../contours/findContours';
 import { SplitView } from './SplitView';
@@ -15,16 +15,41 @@ export type ViewMode =
 
 export type SplitMode = 'origMask' | 'origVector' | 'maskVector';
 
+export interface OverlayColors {
+  anchorColor: string;
+  handleColor: string;
+  handleLineColor: string;
+  retainedPointColor: string;
+  rawPointColor: string;
+}
+
 interface PreviewWorkspaceProps {
   sourceImage: HTMLImageElement | null;
   maskCanvas: HTMLCanvasElement | null;
   contours: ContourNode[];
   simplifiedPoints: Point[][];
   bezierGroups: CubicBezier[][];
+  onUpdateBezierGroups: (newGroups: CubicBezier[][]) => void;
   svgString: string;
   width: number;
   height: number;
 }
+
+const DEFAULT_OVERLAY_COLORS: OverlayColors = {
+  anchorColor: '#ef4444', // Red anchor points for high visibility
+  handleColor: '#3b82f6', // Bright Blue handle endpoints
+  handleLineColor: '#60a5fa', // Light Blue handle connection lines
+  retainedPointColor: '#10b981', // Emerald green retained points
+  rawPointColor: '#a1a1aa', // Zinc raw contour points
+};
+
+const COLOR_PRESETS = [
+  { label: 'Red / Blue (Default)', anchor: '#ef4444', handle: '#3b82f6', line: '#60a5fa' },
+  { label: 'Monochrome Black/White', anchor: '#ffffff', handle: '#71717a', line: '#a1a1aa' },
+  { label: 'Emerald / Gold', anchor: '#10b981', handle: '#f59e0b', line: '#fbbf24' },
+  { label: 'Neon Pink / Cyan', anchor: '#ec4899', handle: '#06b6d4', line: '#67e8f9' },
+  { label: 'Violet / Orange', anchor: '#8b5cf6', handle: '#f97316', line: '#fb923c' },
+];
 
 export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
   sourceImage,
@@ -32,6 +57,7 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
   contours,
   simplifiedPoints,
   bezierGroups,
+  onUpdateBezierGroups,
   svgString,
   width,
   height,
@@ -39,10 +65,26 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
   const [viewMode, setViewMode] = useState<ViewMode>('fittedVector');
   const [splitMode, setSplitMode] = useState<SplitMode>('origVector');
 
+  // Interactive Node Edit Mode
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [activeNode, setActiveNode] = useState<{
+    groupIdx: number;
+    segIdx: number;
+    pointType: 'p0' | 'c1' | 'c2' | 'p1';
+  } | null>(null);
+
+  // Overlay Color Settings
+  const [overlayColors, setOverlayColors] = useState<OverlayColors>(DEFAULT_OVERLAY_COLORS);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+
   // Zoom & Pan state
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const isPanning = useRef(false);
+  const isDraggingNode = useRef(false);
+  const dragStartMouse = useRef({ x: 0, y: 0 });
+  const dragInitialPoints = useRef<{ p0: Point; c1: Point; c2: Point; p1: Point } | null>(null);
+
   const startPan = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const rafId = useRef<number | null>(null);
@@ -115,17 +157,111 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
     };
   }, [handleWheelNative]);
 
-  // Mouse pan
+  // Hit testing for nodes & handles in Edit Mode
+  const findNodeAtMouse = (clientX: number, clientY: number) => {
+    if (!containerRef.current) return null;
+    const rect = containerRef.current.getBoundingClientRect();
+    const svgX = (clientX - rect.left - pan.x) / zoom;
+    const svgY = (clientY - rect.top - pan.y) / zoom;
+    const hitRadius = Math.max(6, 12 / zoom);
+
+    for (let g = 0; g < bezierGroups.length; g++) {
+      const group = bezierGroups[g];
+      for (let s = 0; s < group.length; s++) {
+        const seg = group[s];
+
+        // Check C1 handle first
+        if (Math.hypot(seg.c1.x - svgX, seg.c1.y - svgY) <= hitRadius) {
+          return { groupIdx: g, segIdx: s, pointType: 'c1' as const };
+        }
+        // Check C2 handle
+        if (Math.hypot(seg.c2.x - svgX, seg.c2.y - svgY) <= hitRadius) {
+          return { groupIdx: g, segIdx: s, pointType: 'c2' as const };
+        }
+        // Check P0 anchor
+        if (Math.hypot(seg.p0.x - svgX, seg.p0.y - svgY) <= hitRadius) {
+          return { groupIdx: g, segIdx: s, pointType: 'p0' as const };
+        }
+        // Check P1 anchor
+        if (Math.hypot(seg.p1.x - svgX, seg.p1.y - svgY) <= hitRadius) {
+          return { groupIdx: g, segIdx: s, pointType: 'p1' as const };
+        }
+      }
+    }
+    return null;
+  };
+
+  // Mouse Handlers for Pan and Vector Node Dragging
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
     if (target.closest('button, select, input, .pointer-events-auto')) return;
+
+    if (isEditMode && showBezierHandles) {
+      const hit = findNodeAtMouse(e.clientX, e.clientY);
+      if (hit) {
+        isDraggingNode.current = true;
+        setActiveNode(hit);
+        dragStartMouse.current = { x: e.clientX, y: e.clientY };
+
+        const seg = bezierGroups[hit.groupIdx][hit.segIdx];
+        dragInitialPoints.current = {
+          p0: { ...seg.p0 },
+          c1: { ...seg.c1 },
+          c2: { ...seg.c2 },
+          p1: { ...seg.p1 },
+        };
+        return;
+      }
+    }
 
     isPanning.current = true;
     startPan.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDraggingNode.current && activeNode && dragInitialPoints.current) {
+      const dx = (e.clientX - dragStartMouse.current.x) / zoom;
+      const dy = (e.clientY - dragStartMouse.current.y) / zoom;
+
+      const { groupIdx, segIdx, pointType } = activeNode;
+      const init = dragInitialPoints.current;
+
+      const newGroups = bezierGroups.map((grp, g) =>
+        grp.map((seg, s) => {
+          if (g !== groupIdx || s !== segIdx) return seg;
+
+          const updated = { ...seg };
+
+          if (pointType === 'p0') {
+            updated.p0 = { x: init.p0.x + dx, y: init.p0.y + dy };
+            updated.c1 = { x: init.c1.x + dx, y: init.c1.y + dy };
+          } else if (pointType === 'c1') {
+            updated.c1 = { x: init.c1.x + dx, y: init.c1.y + dy };
+          } else if (pointType === 'c2') {
+            updated.c2 = { x: init.c2.x + dx, y: init.c2.y + dy };
+          } else if (pointType === 'p1') {
+            updated.p1 = { x: init.p1.x + dx, y: init.p1.y + dy };
+            updated.c2 = { x: init.c2.x + dx, y: init.c2.y + dy };
+          }
+
+          return updated;
+        })
+      );
+
+      // Also update adjacent segment endpoint if shared
+      if (pointType === 'p0' && segIdx > 0) {
+        const prevSeg = newGroups[groupIdx][segIdx - 1];
+        prevSeg.p1 = { ...newGroups[groupIdx][segIdx].p0 };
+      } else if (pointType === 'p1' && segIdx < newGroups[groupIdx].length - 1) {
+        const nextSeg = newGroups[groupIdx][segIdx + 1];
+        nextSeg.p0 = { ...newGroups[groupIdx][segIdx].p1 };
+      }
+
+      onUpdateBezierGroups(newGroups);
+      return;
+    }
+
     if (!isPanning.current) return;
     setPan({
       x: e.clientX - startPan.current.x,
@@ -135,6 +271,7 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
 
   const handleMouseUp = () => {
     isPanning.current = false;
+    isDraggingNode.current = false;
   };
 
   // Layer Renderers
@@ -190,7 +327,7 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
                   cx={p.x}
                   cy={p.y}
                   r={Math.max(0.5, 1.5 / zoom)}
-                  fill="#71717a"
+                  fill={overlayColors.rawPointColor}
                   opacity={0.7}
                 />
               ))}
@@ -207,7 +344,7 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
                   cx={p.x}
                   cy={p.y}
                   r={Math.max(1, 2.5 / zoom)}
-                  fill="#a1a1aa"
+                  fill={overlayColors.retainedPointColor}
                   stroke="#18181b"
                   strokeWidth={0.5 / zoom}
                 />
@@ -217,50 +354,78 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
 
         {/* Bézier Anchors & Control Handles */}
         {showBezierHandles &&
-          bezierGroups.map((group, i) => (
-            <g key={`bez-group-${i}`}>
-              {group.map((seg, j) => (
-                <g key={`bez-seg-${j}`}>
-                  <line
-                    x1={seg.p0.x}
-                    y1={seg.p0.y}
-                    x2={seg.c1.x}
-                    y2={seg.c1.y}
-                    stroke="#a1a1aa"
-                    strokeWidth={0.8 / zoom}
-                    strokeDasharray={`${2 / zoom},${2 / zoom}`}
-                  />
-                  <line
-                    x1={seg.p1.x}
-                    y1={seg.p1.y}
-                    x2={seg.c2.x}
-                    y2={seg.c2.y}
-                    stroke="#a1a1aa"
-                    strokeWidth={0.8 / zoom}
-                    strokeDasharray={`${2 / zoom},${2 / zoom}`}
-                  />
-                  <circle
-                    cx={seg.c1.x}
-                    cy={seg.c1.y}
-                    r={Math.max(1, 2 / zoom)}
-                    fill="#71717a"
-                  />
-                  <circle
-                    cx={seg.c2.x}
-                    cy={seg.c2.y}
-                    r={Math.max(1, 2 / zoom)}
-                    fill="#71717a"
-                  />
-                  <circle
-                    cx={seg.p0.x}
-                    cy={seg.p0.y}
-                    r={Math.max(1.5, 3 / zoom)}
-                    fill="#27272a"
-                    stroke="#f4f4f5"
-                    strokeWidth={0.5 / zoom}
-                  />
-                </g>
-              ))}
+          bezierGroups.map((group, gIdx) => (
+            <g key={`bez-group-${gIdx}`}>
+              {group.map((seg, sIdx) => {
+                const isActiveP0 = activeNode?.groupIdx === gIdx && activeNode?.segIdx === sIdx && activeNode?.pointType === 'p0';
+                const isActiveC1 = activeNode?.groupIdx === gIdx && activeNode?.segIdx === sIdx && activeNode?.pointType === 'c1';
+                const isActiveC2 = activeNode?.groupIdx === gIdx && activeNode?.segIdx === sIdx && activeNode?.pointType === 'c2';
+                const isActiveP1 = activeNode?.groupIdx === gIdx && activeNode?.segIdx === sIdx && activeNode?.pointType === 'p1';
+
+                return (
+                  <g key={`bez-seg-${sIdx}`}>
+                    {/* Handle Lines */}
+                    <line
+                      x1={seg.p0.x}
+                      y1={seg.p0.y}
+                      x2={seg.c1.x}
+                      y2={seg.c1.y}
+                      stroke={overlayColors.handleLineColor}
+                      strokeWidth={0.9 / zoom}
+                      strokeDasharray={`${2.5 / zoom},${2.5 / zoom}`}
+                    />
+                    <line
+                      x1={seg.p1.x}
+                      y1={seg.p1.y}
+                      x2={seg.c2.x}
+                      y2={seg.c2.y}
+                      stroke={overlayColors.handleLineColor}
+                      strokeWidth={0.9 / zoom}
+                      strokeDasharray={`${2.5 / zoom},${2.5 / zoom}`}
+                    />
+
+                    {/* Control Handles (C1, C2) */}
+                    <circle
+                      cx={seg.c1.x}
+                      cy={seg.c1.y}
+                      r={isActiveC1 ? Math.max(3, 5 / zoom) : Math.max(1.5, 2.8 / zoom)}
+                      fill={overlayColors.handleColor}
+                      stroke="#ffffff"
+                      strokeWidth={0.6 / zoom}
+                      className={isEditMode ? 'cursor-move' : ''}
+                    />
+                    <circle
+                      cx={seg.c2.x}
+                      cy={seg.c2.y}
+                      r={isActiveC2 ? Math.max(3, 5 / zoom) : Math.max(1.5, 2.8 / zoom)}
+                      fill={overlayColors.handleColor}
+                      stroke="#ffffff"
+                      strokeWidth={0.6 / zoom}
+                      className={isEditMode ? 'cursor-move' : ''}
+                    />
+
+                    {/* Anchor Points (P0, P1) */}
+                    <circle
+                      cx={seg.p0.x}
+                      cy={seg.p0.y}
+                      r={isActiveP0 ? Math.max(4, 6 / zoom) : Math.max(2, 3.5 / zoom)}
+                      fill={overlayColors.anchorColor}
+                      stroke="#ffffff"
+                      strokeWidth={0.8 / zoom}
+                      className={isEditMode ? 'cursor-move' : ''}
+                    />
+                    <circle
+                      cx={seg.p1.x}
+                      cy={seg.p1.y}
+                      r={isActiveP1 ? Math.max(4, 6 / zoom) : Math.max(2, 3.5 / zoom)}
+                      fill={overlayColors.anchorColor}
+                      stroke="#ffffff"
+                      strokeWidth={0.8 / zoom}
+                      className={isEditMode ? 'cursor-move' : ''}
+                    />
+                  </g>
+                );
+              })}
             </g>
           ))}
 
@@ -309,7 +474,9 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      className="relative flex-1 bg-zinc-100 dark:bg-zinc-950 overflow-hidden cursor-grab active:cursor-grabbing select-none"
+      className={`relative flex-1 bg-zinc-100 dark:bg-zinc-950 overflow-hidden select-none ${
+        isEditMode ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'
+      }`}
     >
       {/* Top Workspace Controls */}
       <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between pointer-events-none">
@@ -350,8 +517,23 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
           )}
         </div>
 
-        {/* Overlay Toggles & Zoom Controls */}
+        {/* Edit Mode, Overlay Toggles & Color Picker Controls */}
         <div className="flex items-center gap-2 pointer-events-auto">
+          {/* Edit Nodes Mode Button */}
+          <button
+            onClick={() => setIsEditMode(!isEditMode)}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer shadow-md ${
+              isEditMode
+                ? 'bg-red-600 text-white ring-2 ring-red-400 animate-pulse'
+                : 'bg-white/90 dark:bg-zinc-900/90 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+            }`}
+            title="Toggle Edit Vector Nodes & Handles Mode"
+          >
+            <MousePointer2 className="w-3.5 h-3.5" />
+            <span>{isEditMode ? 'Editing Nodes On' : 'Edit Nodes'}</span>
+          </button>
+
+          {/* Overlay Visibility Buttons */}
           <div className="flex items-center gap-1 bg-white/90 dark:bg-zinc-900/90 backdrop-blur p-1 rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-lg text-xs">
             <button
               onClick={() => setShowBezierHandles(!showBezierHandles)}
@@ -397,8 +579,106 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
             >
               Bounds
             </button>
+
+            {/* Custom Overlay Colors Dropdown */}
+            <div className="relative border-l border-zinc-200 dark:border-zinc-800 pl-1 ml-0.5">
+              <button
+                onClick={() => setShowColorPicker(!showColorPicker)}
+                className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition cursor-pointer flex items-center gap-1"
+                title="Customize Overlay Node & Handle Colors"
+              >
+                <Palette className="w-3.5 h-3.5" />
+                <span
+                  className="w-2.5 h-2.5 rounded-full inline-block border border-zinc-400"
+                  style={{ backgroundColor: overlayColors.anchorColor }}
+                />
+              </button>
+
+              {showColorPicker && (
+                <div className="absolute right-0 top-8 w-64 p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl space-y-3 z-50 text-xs">
+                  <div className="flex items-center justify-between font-bold text-zinc-900 dark:text-zinc-100 pb-1 border-b border-zinc-200 dark:border-zinc-800">
+                    <span>Overlay Colors</span>
+                    <button
+                      onClick={() => setShowColorPicker(false)}
+                      className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {/* Color Pickers */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-zinc-600 dark:text-zinc-400">Anchor Points</span>
+                      <input
+                        type="color"
+                        value={overlayColors.anchorColor}
+                        onChange={(e) => setOverlayColors((c) => ({ ...c, anchorColor: e.target.value }))}
+                        className="w-6 h-6 rounded cursor-pointer border border-zinc-300 dark:border-zinc-700 bg-transparent p-0"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-zinc-600 dark:text-zinc-400">Control Handles</span>
+                      <input
+                        type="color"
+                        value={overlayColors.handleColor}
+                        onChange={(e) => setOverlayColors((c) => ({ ...c, handleColor: e.target.value }))}
+                        className="w-6 h-6 rounded cursor-pointer border border-zinc-300 dark:border-zinc-700 bg-transparent p-0"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-zinc-600 dark:text-zinc-400">Handle Lines</span>
+                      <input
+                        type="color"
+                        value={overlayColors.handleLineColor}
+                        onChange={(e) => setOverlayColors((c) => ({ ...c, handleLineColor: e.target.value }))}
+                        className="w-6 h-6 rounded cursor-pointer border border-zinc-300 dark:border-zinc-700 bg-transparent p-0"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-zinc-600 dark:text-zinc-400">Retained Points</span>
+                      <input
+                        type="color"
+                        value={overlayColors.retainedPointColor}
+                        onChange={(e) => setOverlayColors((c) => ({ ...c, retainedPointColor: e.target.value }))}
+                        className="w-6 h-6 rounded cursor-pointer border border-zinc-300 dark:border-zinc-700 bg-transparent p-0"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Quick Color Presets */}
+                  <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                    <span className="block text-[10px] text-zinc-400 mb-1">Theme Presets</span>
+                    <div className="space-y-1">
+                      {COLOR_PRESETS.map((p, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() =>
+                            setOverlayColors({
+                              anchorColor: p.anchor,
+                              handleColor: p.handle,
+                              handleLineColor: p.line,
+                              retainedPointColor: p.handle,
+                              rawPointColor: '#a1a1aa',
+                            })
+                          }
+                          className="w-full flex items-center justify-between px-2 py-1 rounded bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-[11px] text-zinc-700 dark:text-zinc-300 cursor-pointer"
+                        >
+                          <span>{p.label}</span>
+                          <div className="flex items-center gap-1">
+                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.anchor }} />
+                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.handle }} />
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
+          {/* Zoom Controls */}
           <div className="flex items-center bg-white/90 dark:bg-zinc-900/90 backdrop-blur p-1 rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-lg gap-0.5">
             <button
               onClick={() => setZoom((z) => Math.max(0.05, z * 0.8))}

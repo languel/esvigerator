@@ -13,7 +13,9 @@ import { DropZone } from '../components/DropZone';
 import { DEFAULT_TRACE_SETTINGS, PRESETS } from './defaults';
 import { HistoryTracker } from './history';
 import { TraceSettings, WorkerRequest, WorkerResponse } from '../workers/protocol';
-import { renderSvgToPngBlob } from '../svg/exportSvg';
+import { generateSvgDocument, renderSvgToPngBlob } from '../svg/exportSvg';
+import { serializeCubicBeziersToPath } from '../svg/serializePath';
+import { CubicBezier } from '../geometry/point';
 
 export const App: React.FC = () => {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -85,6 +87,45 @@ export const App: React.FC = () => {
       workerRef.current?.terminate();
     };
   }, []);
+
+  // Real-time update from manual node/handle dragging in canvas
+  const handleUpdateBezierGroups = useCallback(
+    (newGroups: CubicBezier[][]) => {
+      if (!workerResult) return;
+
+      const isCenterline = settings.fitting.mode === 'centerline';
+      const pathData = serializeCubicBeziersToPath(newGroups, {
+        precision: settings.export.precision,
+        relativeCommands: settings.export.relativeCommands,
+        closePaths: !isCenterline,
+      });
+
+      const svgString = generateSvgDocument({
+        width: workerResult.width,
+        height: workerResult.height,
+        pathData,
+        fillColor: settings.export.fillColor,
+        fillRule: settings.contours.fillRule,
+        transparentBackground: settings.export.transparentBackground,
+        prettyPrint: settings.export.prettyPrint,
+        isStrokeMode: isCenterline,
+        strokeWidth: settings.fitting.strokeWidth,
+        strokeCap: settings.fitting.strokeCap,
+        strokeJoin: settings.fitting.strokeJoin,
+      });
+
+      setWorkerResult((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          bezierGroups: newGroups,
+          pathData,
+          svgString,
+        };
+      });
+    },
+    [workerResult, settings]
+  );
 
   // Dispatch processing job to worker
   const dispatchTrace = useCallback((img: HTMLImageElement, currentSettings: TraceSettings) => {
@@ -288,6 +329,7 @@ export const App: React.FC = () => {
               contours={workerResult.contours}
               simplifiedPoints={workerResult.simplifiedPoints}
               bezierGroups={workerResult.bezierGroups}
+              onUpdateBezierGroups={handleUpdateBezierGroups}
               svgString={workerResult.svgString}
               width={workerResult.width}
               height={workerResult.height}
