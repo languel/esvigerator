@@ -1,8 +1,16 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { ZoomIn, ZoomOut, Maximize2, MousePointer2, Palette } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, MousePointer2, Palette, Wand2 } from 'lucide-react';
 import { Point, CubicBezier } from '../geometry/point';
 import { ContourNode } from '../contours/findContours';
 import { SplitView } from './SplitView';
+import { SculptToolbar } from './SculptToolbar';
+import {
+  SculptBrushOptions,
+  applyGrabBrush,
+  applySmoothBrush,
+  applySharpenBrush,
+  applyPinchBrush,
+} from '../geometry/sculpt';
 
 export type ViewMode =
   | 'original'
@@ -36,11 +44,11 @@ interface PreviewWorkspaceProps {
 }
 
 const DEFAULT_OVERLAY_COLORS: OverlayColors = {
-  anchorColor: '#ef4444', // Red anchor points for high visibility
-  handleColor: '#3b82f6', // Bright Blue handle endpoints
-  handleLineColor: '#60a5fa', // Light Blue handle connection lines
-  retainedPointColor: '#10b981', // Emerald green retained points
-  rawPointColor: '#a1a1aa', // Zinc raw contour points
+  anchorColor: '#ef4444',
+  handleColor: '#3b82f6',
+  handleLineColor: '#60a5fa',
+  retainedPointColor: '#10b981',
+  rawPointColor: '#a1a1aa',
 };
 
 const COLOR_PRESETS = [
@@ -65,8 +73,17 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
   const [viewMode, setViewMode] = useState<ViewMode>('fittedVector');
   const [splitMode, setSplitMode] = useState<SplitMode>('origVector');
 
-  // Interactive Node Edit Mode
+  // Interactive Modes
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isSculptMode, setIsSculptMode] = useState(false);
+  const [sculptOptions, setSculptOptions] = useState<SculptBrushOptions>({
+    tool: 'grab',
+    radius: 40,
+    strength: 0.35,
+  });
+
+  const [mouseCanvasPos, setMouseCanvasPos] = useState<Point | null>(null);
+
   const [activeNode, setActiveNode] = useState<{
     groupIdx: number;
     segIdx: number;
@@ -82,6 +99,9 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const isPanning = useRef(false);
   const isDraggingNode = useRef(false);
+  const isSculpting = useRef(false);
+  const prevSculptPos = useRef<Point | null>(null);
+
   const dragStartMouse = useRef({ x: 0, y: 0 });
   const dragInitialPoints = useRef<{ p0: Point; c1: Point; c2: Point; p1: Point } | null>(null);
 
@@ -170,19 +190,15 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
       for (let s = 0; s < group.length; s++) {
         const seg = group[s];
 
-        // Check C1 handle first
         if (Math.hypot(seg.c1.x - svgX, seg.c1.y - svgY) <= hitRadius) {
           return { groupIdx: g, segIdx: s, pointType: 'c1' as const };
         }
-        // Check C2 handle
         if (Math.hypot(seg.c2.x - svgX, seg.c2.y - svgY) <= hitRadius) {
           return { groupIdx: g, segIdx: s, pointType: 'c2' as const };
         }
-        // Check P0 anchor
         if (Math.hypot(seg.p0.x - svgX, seg.p0.y - svgY) <= hitRadius) {
           return { groupIdx: g, segIdx: s, pointType: 'p0' as const };
         }
-        // Check P1 anchor
         if (Math.hypot(seg.p1.x - svgX, seg.p1.y - svgY) <= hitRadius) {
           return { groupIdx: g, segIdx: s, pointType: 'p1' as const };
         }
@@ -191,12 +207,32 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
     return null;
   };
 
-  // Mouse Handlers for Pan and Vector Node Dragging
+  // Convert mouse screen coordinates to image canvas space
+  const getCanvasCoords = (clientX: number, clientY: number): Point | null => {
+    if (!containerRef.current) return null;
+    const rect = containerRef.current.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left - pan.x) / zoom,
+      y: (clientY - rect.top - pan.y) / zoom,
+    };
+  };
+
+  // Mouse Handlers for Pan, Node Dragging, and Vector Sculpting
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
     if (target.closest('button, select, input, .pointer-events-auto')) return;
 
+    const imgCoords = getCanvasCoords(e.clientX, e.clientY);
+
+    // Sculpt Mode Dragging
+    if (isSculptMode && imgCoords) {
+      isSculpting.current = true;
+      prevSculptPos.current = imgCoords;
+      return;
+    }
+
+    // Edit Nodes Dragging
     if (isEditMode && showBezierHandles) {
       const hit = findNodeAtMouse(e.clientX, e.clientY);
       if (hit) {
@@ -220,6 +256,32 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    const imgCoords = getCanvasCoords(e.clientX, e.clientY);
+    setMouseCanvasPos(imgCoords);
+
+    // Perform Vector Sculpting Brush Operations
+    if (isSculpting.current && isSculptMode && imgCoords && prevSculptPos.current) {
+      let updated = bezierGroups;
+      const { tool, radius, strength } = sculptOptions;
+
+      if (tool === 'grab') {
+        updated = applyGrabBrush(updated, prevSculptPos.current, imgCoords, radius, strength);
+      } else if (tool === 'smooth') {
+        updated = applySmoothBrush(updated, imgCoords, radius, strength);
+      } else if (tool === 'sharpen') {
+        updated = applySharpenBrush(updated, imgCoords, radius, strength);
+      } else if (tool === 'pinch') {
+        updated = applyPinchBrush(updated, imgCoords, radius, strength, false);
+      } else if (tool === 'inflate') {
+        updated = applyPinchBrush(updated, imgCoords, radius, strength, true);
+      }
+
+      prevSculptPos.current = imgCoords;
+      onUpdateBezierGroups(updated);
+      return;
+    }
+
+    // Node Dragging
     if (isDraggingNode.current && activeNode && dragInitialPoints.current) {
       const dx = (e.clientX - dragStartMouse.current.x) / zoom;
       const dy = (e.clientY - dragStartMouse.current.y) / zoom;
@@ -249,7 +311,6 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
         })
       );
 
-      // Also update adjacent segment endpoint if shared
       if (pointType === 'p0' && segIdx > 0) {
         const prevSeg = newGroups[groupIdx][segIdx - 1];
         prevSeg.p1 = { ...newGroups[groupIdx][segIdx].p0 };
@@ -272,6 +333,8 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
   const handleMouseUp = () => {
     isPanning.current = false;
     isDraggingNode.current = false;
+    isSculpting.current = false;
+    prevSculptPos.current = null;
   };
 
   // Layer Renderers
@@ -317,6 +380,19 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
         style={{ width, height }}
         className="absolute inset-0 pointer-events-none overflow-visible"
       >
+        {/* Sculpt Brush Cursor Overlay */}
+        {isSculptMode && mouseCanvasPos && (
+          <circle
+            cx={mouseCanvasPos.x}
+            cy={mouseCanvasPos.y}
+            r={sculptOptions.radius}
+            fill="rgba(59, 130, 246, 0.08)"
+            stroke="#3b82f6"
+            strokeWidth={1.5 / zoom}
+            strokeDasharray={`${4 / zoom},${4 / zoom}`}
+          />
+        )}
+
         {/* Raw Points */}
         {showRawPoints &&
           contours.map((c, i) => (
@@ -475,9 +551,22 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       className={`relative flex-1 bg-zinc-100 dark:bg-zinc-950 overflow-hidden select-none ${
-        isEditMode ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'
+        isSculptMode
+          ? 'cursor-crosshair'
+          : isEditMode
+          ? 'cursor-crosshair'
+          : 'cursor-grab active:cursor-grabbing'
       }`}
     >
+      {/* Floating Sculpt Toolbar */}
+      {isSculptMode && (
+        <SculptToolbar
+          brushOptions={sculptOptions}
+          onChangeOptions={(opt) => setSculptOptions((prev) => ({ ...prev, ...opt }))}
+          onClose={() => setIsSculptMode(false)}
+        />
+      )}
+
       {/* Top Workspace Controls */}
       <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between pointer-events-none">
         {/* Mode Selector Tabs */}
@@ -517,14 +606,34 @@ export const PreviewWorkspace: React.FC<PreviewWorkspaceProps> = ({
           )}
         </div>
 
-        {/* Edit Mode, Overlay Toggles & Color Picker Controls */}
+        {/* Sculpt Mode, Edit Mode, Overlay Toggles & Color Picker Controls */}
         <div className="flex items-center gap-2 pointer-events-auto">
+          {/* Vector Sculpt Brushes Mode Button */}
+          <button
+            onClick={() => {
+              setIsSculptMode(!isSculptMode);
+              if (!isSculptMode) setIsEditMode(false);
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer shadow-md ${
+              isSculptMode
+                ? 'bg-blue-600 text-white ring-2 ring-blue-400 shadow-lg'
+                : 'bg-white/90 dark:bg-zinc-900/90 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+            }`}
+            title="Toggle Blender-Style Vector Sculpt Brushes Mode"
+          >
+            <Wand2 className="w-3.5 h-3.5" />
+            <span>{isSculptMode ? 'Sculpt Mode On' : 'Sculpt Brushes'}</span>
+          </button>
+
           {/* Edit Nodes Mode Button */}
           <button
-            onClick={() => setIsEditMode(!isEditMode)}
+            onClick={() => {
+              setIsEditMode(!isEditMode);
+              if (!isEditMode) setIsSculptMode(false);
+            }}
             className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer shadow-md ${
               isEditMode
-                ? 'bg-red-600 text-white ring-2 ring-red-400 animate-pulse'
+                ? 'bg-red-600 text-white ring-2 ring-red-400'
                 : 'bg-white/90 dark:bg-zinc-900/90 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800'
             }`}
             title="Toggle Edit Vector Nodes & Handles Mode"
